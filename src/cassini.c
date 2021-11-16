@@ -1,4 +1,5 @@
 #include "cassini.h"
+#include <syslog.h>
 
 const char usage_info[] =
     "usage: cassini [OPTIONS] -l -> list all tasks\n"
@@ -53,22 +54,30 @@ int main(int argc, char *argv[]) {
         case 'r':
             operation = CLIENT_REQUEST_REMOVE_TASK;
             taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') goto error;
+            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
+                goto error;
+            }
             break;
         case 'x':
             operation = CLIENT_REQUEST_GET_TIMES_AND_EXITCODES;
             taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') goto error;
+            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
+                goto error;
+            }
             break;
         case 'o':
             operation = CLIENT_REQUEST_GET_STDOUT;
             taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') goto error;
+            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
+                goto error;
+            }
             break;
         case 'e':
             operation = CLIENT_REQUEST_GET_STDERR;
             taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') goto error;
+            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
+                goto error;
+            }
             break;
         case 'h':
             printf("%s", usage_info);
@@ -79,6 +88,27 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    pid_t pid = fork();
+    
+    if (pid == -1) {
+        goto error;
+    } else if (pid != 0) {
+        exit(EXIT_SUCCESS);
+    }
+    
+    if(setsid() == -1) {
+        goto error;
+    }
+    
+    pid = fork();
+    
+    if (pid == -1) {
+        goto error;
+    } else if (pid != 0) {
+        exit(EXIT_SUCCESS);
+    }
+    
+    syslog(LOG_NOTICE, "saturnd daemon started");
     
     return EXIT_SUCCESS;
     
@@ -94,4 +124,3 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 }
-
