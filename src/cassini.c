@@ -1,32 +1,26 @@
 #include "cassini.h"
 
-const char usage_info[] = "\
-   usage: cassini [OPTIONS] -l -> list all tasks\n\
-      or: cassini [OPTIONS]    -> same\n\
-      or: cassini [OPTIONS] -q -> terminate the daemon\n\
-      or: cassini [OPTIONS] -c [-m MINUTES] [-H HOURS] [-d DAYSOFWEEK] COMMAND_NAME [ARG_1] ... [ARG_N]\n\
-          -> add a new task and print its TASKID\n\
-             format & semantics of the \"timing\" fields defined here:\n\
-             https://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html\n\
-             default value for each field is \"*\"\n\
-      or: cassini [OPTIONS] -r TASKID -> remove a task\n\
-      or: cassini [OPTIONS] -x TASKID -> get info (time + exit code) on all the past runs of a task\n\
-      or: cassini [OPTIONS] -o TASKID -> get the standard output of the last run of a task\n\
-      or: cassini [OPTIONS] -e TASKID -> get the standard error\n\
-      or: cassini -h -> display this message\n\
-\n\
-   options:\n\
-     -p PIPES_DIR -> look for the pipes in PIPES_DIR (default: /tmp/<USERNAME>/saturnd/pipes)\n\
-";
+const char usage_info[] =
+    "usage: cassini [OPTIONS] -l -> list all tasks\n"
+    "\tor: cassini [OPTIONS]    -> same\n"
+    "\tor: cassini [OPTIONS] -q -> terminate the daemon\n"
+    "\tor: cassini [OPTIONS] -c [-m MINUTES] [-H HOURS] [-d DAYSOFWEEK] COMMAND_NAME [ARG_1] ... [ARG_N]\n"
+    "\t\t-> add a new task and print its TASKID\n"
+    "\t\t\tformat & semantics of the \"timing\" fields defined here:\n"
+    "\t\t\thttps://pubs.opengroup.org/onlinepubs/9699919799/utilities/crontab.html\n"
+    "\t\t\tdefault value for each field is \"*\"\n"
+    "\tor: cassini [OPTIONS] -r TASKID -> remove a task\n"
+    "\tor: cassini [OPTIONS] -x TASKID -> get info (time + exit code) on all the past runs of a task\n"
+    "\tor: cassini [OPTIONS] -o TASKID -> get the standard output of the last run of a task\n"
+    "\tor: cassini [OPTIONS] -e TASKID -> get the standard error\n"
+    "\tor: cassini -h -> display this message\n";
 
 int main(int argc, char *argv[]) {
     errno = 0;
-    
     char *minutes_str = "*";
     char *hours_str = "*";
     char *daysofweek_str = "*";
     char *pipes_directory = NULL;
-    
     uint16_t operation = CLIENT_REQUEST_LIST_TASKS;
     uint64_t taskid;
     
@@ -89,9 +83,15 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
     
     error:
-    if (errno != 0) perror("main");
-    free(pipes_directory);
-    pipes_directory = NULL;
-    return EXIT_FAILURE;
+    {
+        if (errno != 0) {
+            perror("main");
+        }
+        
+        free(pipes_directory);
+        pipes_directory = NULL;
+        
+        return EXIT_FAILURE;
+    }
 }
 
