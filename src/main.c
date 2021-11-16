@@ -1,7 +1,20 @@
-#include "cassini.h"
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <errno.h>
 #include <syslog.h>
+#include <limits.h>
+#include <sy5/utils.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
+#define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
+#define REQUEST_PIPE_NAME "saturnd-request-pipe"
+#define REPLY_PIPE_NAME "saturnd-reply-pipe"
 
 const char usage_info[] =
+#ifdef CASSINI
     "usage: cassini [OPTIONS] -l -> list all tasks\n"
     "\tor: cassini [OPTIONS]    -> same\n"
     "\tor: cassini [OPTIONS] -q -> terminate the daemon\n"
@@ -14,21 +27,48 @@ const char usage_info[] =
     "\tor: cassini [OPTIONS] -x TASKID -> get info (time + exit code) on all the past runs of a task\n"
     "\tor: cassini [OPTIONS] -o TASKID -> get the standard output of the last run of a task\n"
     "\tor: cassini [OPTIONS] -e TASKID -> get the standard error\n"
-    "\tor: cassini -h -> display this message\n";
+    "\tor: cassini -h -> display this message\n"
+#else
+    "usage: saturnd [OPTIONS]\n"
+#endif
+    "\n"
+    "options:\n"
+#ifdef CASSINI
+    "\t-p PIPES_DIR -> look for the pipes in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
+#else
+    "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
+#endif
 
 int main(int argc, char *argv[]) {
     errno = 0;
+    char *pipes_directory = NULL;
+
+#ifdef CASSINI
     char *minutes_str = "*";
     char *hours_str = "*";
     char *daysofweek_str = "*";
-    char *pipes_directory = NULL;
     uint16_t operation = CLIENT_REQUEST_LIST_TASKS;
     uint64_t taskid;
+    char *strtoull_endp;
+#endif
     
     int opt;
-    char *strtoull_endp;
     while ((opt = getopt(argc, argv, "hlcqm:H:d:p:r:x:o:e:")) != -1) {
         switch (opt) {
+        case 'p':
+            pipes_directory = strdup(optarg);
+            if (pipes_directory == NULL) {
+                goto error;
+            }
+            break;
+        case 'h':
+            printf("%s", usage_info);
+            return 0;
+        case '?':
+            fprintf(stderr, "%s", usage_info);
+            return 0;
+#ifdef CASSINI
+            goto error;
         case 'm':
             minutes_str = optarg;
             break;
@@ -37,10 +77,6 @@ int main(int argc, char *argv[]) {
             break;
         case 'd':
             daysofweek_str = optarg;
-            break;
-        case 'p':
-            pipes_directory = strdup(optarg);
-            if (pipes_directory == NULL) goto error;
             break;
         case 'l':
             operation = CLIENT_REQUEST_LIST_TASKS;
@@ -79,15 +115,67 @@ int main(int argc, char *argv[]) {
                 goto error;
             }
             break;
-        case 'h':
-            printf("%s", usage_info);
-            return 0;
-        case '?':
-            fprintf(stderr, "%s", usage_info);
+#endif
+        }
+    }
+    
+    if (pipes_directory == NULL) {
+        pipes_directory = calloc(1, PATH_MAX);
+        if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
             goto error;
         }
     }
     
+    char *request_pipe_path = calloc(1, PATH_MAX);
+    if (sprintf(request_pipe_path, "%s%s", pipes_directory, REQUEST_PIPE_NAME) == -1) {
+        goto error;
+    }
+    
+    char *reply_pipe_path = calloc(1, PATH_MAX);
+    if (sprintf(reply_pipe_path, "%s%s", pipes_directory, REPLY_PIPE_NAME) == -1) {
+        goto error;
+    }
+
+#ifdef CASSINI
+    // TODO: CASSINI
+#else
+    DIR* dir = opendir(pipes_directory);
+    
+    if (!dir) {
+        if (ENOENT != errno || mkdir_recursively(pipes_directory, 0777) == -1) {
+            goto error;
+        }
+        
+        dir = opendir(pipes_directory);
+        
+        if (!dir) {
+            goto error;
+        }
+    }
+    
+    struct dirent *entry;
+    int request_pipe_found = 0;
+    int reply_pipe_found = 0;
+    
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, REQUEST_PIPE_NAME) == 0) {
+            request_pipe_found = 1;
+        } else if (strcmp(entry->d_name, REPLY_PIPE_NAME) == 0) {
+            reply_pipe_found = 1;
+        }
+        
+        if (request_pipe_found && reply_pipe_found) {
+            break;
+        }
+    }
+    
+    if ((!request_pipe_found && mkfifo(request_pipe_path, 0666) == -1) ||
+        (!reply_pipe_found && mkfifo(reply_pipe_path, 0666) == -1)) {
+        goto error;
+    }
+    
+    closedir(dir);
+
     pid_t pid = fork();
     
     if (pid == -1) {
@@ -96,7 +184,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
     
-    if(setsid() == -1) {
+    if (setsid() == -1) {
         goto error;
     }
     
@@ -108,7 +196,13 @@ int main(int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
     
-    syslog(LOG_NOTICE, "saturnd daemon started");
+    syslog(LOG_NOTICE, "daemon started");
+    
+    /*while (1) {
+        sleep(5);
+        syslog(LOG_NOTICE, "working");
+    }*/
+#endif
     
     return EXIT_SUCCESS;
     

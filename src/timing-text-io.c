@@ -1,4 +1,4 @@
-#include "timing-text-io.h"
+#include <sy5/timing-text-io.h>
 
 /* Writes the result in *dest. In case of success, returns the number of characters read (>0). In
    case of failure, returns 0. */

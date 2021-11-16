@@ -4,8 +4,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
-
-#include "timing.h"
+#include <sy5/timing.h>
 
 #define TIMING_TEXT_MIN_BUFFERSIZE 1024
 

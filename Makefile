@@ -1,15 +1,15 @@
-# TODO: Créer/nettoyer l'exécutable saturnd
-# TODO: Compiler automatiquement tous les .c
-
 .PHONY: distclean all
 
 CC ?= gcc
-CCFLAGS ?= -Wall -std=c99  -Iinclude
+CCFLAGS ?= -Wall -std=c99 -Iinclude
 
-all: cassini
+all: cassini saturnd
 
 cassini:
-	$(CC) $(CCFLAGS) $(CFLAGS) -o cassini src/cassini.c src/timing-text-io.c
+	$(CC) $(CCFLAGS) $(CFLAGS) -DCASSINI -o cassini src/main.c src/timing-text-io.c src/utils.c
+
+saturnd:
+	$(CC) $(CCFLAGS) $(CFLAGS) -DSATURND -o saturnd src/main.c src/timing-text-io.c src/utils.c
 
 distclean:
-	rm cassini *.o
+	rm cassini saturnd *.o
