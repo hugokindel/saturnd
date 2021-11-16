@@ -3,3 +3,5 @@ cassini
 run/
 *.dSYM
 .DS_Store
+cmake-*/
+.idea/
