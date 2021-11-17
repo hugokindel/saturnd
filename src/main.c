@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <sys/fcntl.h>
-#include <sy5/client-request.h>
+#include <sy5/request.h>
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
