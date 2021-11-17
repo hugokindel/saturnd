@@ -14,7 +14,7 @@
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
 #define REPLY_PIPE_NAME "saturnd-reply-pipe"
-#define MAX_MESSAGE_LENGTH 4096 // TODO: Which limit to impose ?
+#define MAX_MESSAGE_LENGTH 4096
 
 #define print_error(err) fprintf(stderr, "main: " err)
 
