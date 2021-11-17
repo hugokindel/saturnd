@@ -1,3 +1,5 @@
+// TODO: Add CLIENT_REQUEST_ALIVE
+
 #ifndef CLIENT_REQUEST_H
 #define CLIENT_REQUEST_H
 
@@ -15,14 +17,17 @@
 // Lists all previous execution times and exit codes of a scheduled task.
 #define CLIENT_REQUEST_GET_TIMES_AND_EXITCODES 0x5458 // 'TX'.
 
-// Terminates the daemon.
-#define CLIENT_REQUEST_TERMINATE 0x544d // 'TM'.
-
 // Displays standard output from the latest execution of a scheduled task.
 #define CLIENT_REQUEST_GET_STDOUT 0x534f // 'SO'.
 
 // Displays standard error output from the latest execution of a scheduled task.
 #define CLIENT_REQUEST_GET_STDERR 0x5345 // 'SE'.
+
+// Terminates the daemon.
+#define CLIENT_REQUEST_TERMINATE 0x544d // 'TM'.
+
+// Sends a message to the daemon to check if he's alive.
+#define CLIENT_REQUEST_ALIVE 0x414c // 'AL'.
 
 // Describes a request to be sent from a client to the daemon.
 typedef struct sy5_request {

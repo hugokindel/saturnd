@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/fcntl.h>
 #include <sy5/request.h>
+#include <sy5/reply.h>
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
@@ -152,8 +153,11 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     
-    syslog(LOG_NOTICE, "Sending to daemon: Ping");
-    write(request_write_fd, "Ping", sizeof("Ping"));
+    sy5_request request = {
+        .opcode = CLIENT_REQUEST_LIST_TASKS
+    };
+    syslog(LOG_NOTICE, "Sending to daemon: %x", request.opcode);
+    write(request_write_fd, &request, sizeof(sy5_request));
     close(request_write_fd);
     
     int reply_read_fd = open(reply_pipe_path, O_RDONLY);
@@ -161,12 +165,12 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     
-    char reply_buffer[PIPE_BUF];
-    if (read(reply_read_fd, reply_buffer, PIPE_BUF) == 1) {
+    sy5_reply reply;
+    if (read(reply_read_fd, &reply, sizeof(sy5_reply)) == 1) {
         goto error_with_perror;
     }
     close(reply_read_fd);
-    syslog(LOG_NOTICE, "Response received: %s", reply_buffer);
+    syslog(LOG_NOTICE, "Response received: %s", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
 #else
     DIR* dir = opendir(pipes_directory);
     
@@ -205,7 +209,10 @@ int main(int argc, char *argv[]) {
     if (request_pipe_found) {
         int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
         if (request_write_fd != -1) {
-            write(request_write_fd, "ALIVE", sizeof("ALIVE"));
+            sy5_request request = {
+                .opcode = CLIENT_REQUEST_ALIVE
+            };
+            write(request_write_fd, &request, sizeof(sy5_request));
             close(request_write_fd);
             print_error("Daemon is already running or pipes are being used by another process\n");
             goto error;
@@ -248,25 +255,28 @@ int main(int argc, char *argv[]) {
             goto error_with_perror;
         }
     
-        char request_buffer[PIPE_BUF];
-        if (read(request_read_fd, request_buffer, PIPE_BUF) == 1) {
+        sy5_request request;
+        if (read(request_read_fd, &request, sizeof(sy5_request)) == 1) {
             goto error_with_perror;
         }
         close(request_read_fd);
+    
+        syslog(LOG_NOTICE, "Request received: %x", request.opcode);
         
-        if (strcmp(request_buffer, "ALIVE") == 0) {
+        if (request.opcode == CLIENT_REQUEST_ALIVE) {
             continue;
         }
-    
-        syslog(LOG_NOTICE, "Request received: %s", request_buffer);
     
         int reply_write_fd = open(reply_pipe_path, O_WRONLY);
         if (reply_write_fd == -1) {
             goto error_with_perror;
         }
     
-        syslog(LOG_NOTICE, "Sending to client: Pong");
-        write(reply_write_fd, "Pong", sizeof("Pong"));
+        sy5_reply reply = {
+            .reptype = SERVER_REPLY_OK
+        };
+        syslog(LOG_NOTICE, "Sending to client: %x", reply.reptype);
+        write(reply_write_fd, &reply, sizeof(sy5_reply));
         close(reply_write_fd);
     }
 #endif
