@@ -12,7 +12,7 @@
 // Removes a scheduled task.
 #define CLIENT_REQUEST_REMOVE_TASK 0x524d // 'RM'.
 
-// Lists all previous execution times and return values of a scheduled task.
+// Lists all previous execution times and exit codes of a scheduled task.
 #define CLIENT_REQUEST_GET_TIMES_AND_EXITCODES 0x5458 // 'TX'.
 
 // Terminates the daemon.
@@ -25,7 +25,7 @@
 #define CLIENT_REQUEST_GET_STDERR 0x5345 // 'SE'.
 
 // Describes a request to be sent from a client to the daemon.
-struct sy5_request {
+typedef struct sy5_request {
     // Operation code (request identifier).
     uint16_t opcode;
     
@@ -49,6 +49,6 @@ struct sy5_request {
             uint64_t taskid;
         };
     };
-};
+} sy5_request;
 
 #endif // CLIENT_REQUEST_H.

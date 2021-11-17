@@ -4,6 +4,15 @@
 // Includes integer types (`uint8`, `uint16`, `uint32`, `uint64`, `int8`, `int16`, `int32`, `int64`).
 #include <stdint.h>
 
+// Describes a string.
+typedef struct sy5_string {
+    // Length of the string.
+    uint32_t length;
+    
+    // Data of the string.
+    uint8_t data[];
+} sy5_string;
+
 // Describes multiple time references.
 typedef struct sy5_timing {
     // Minutes of an hour represented by a bit map (starts with minute 0 at the least significant bit).
@@ -25,7 +34,28 @@ typedef struct sy5_commandline {
     uint32_t argc;
     
     // Values for each argument.
-    char *argv[];
+    sy5_string argv[];
 } sy5_commandline;
+
+// Describes a scheduled task.
+typedef struct sy5_task {
+    // ID of the task.
+    uint64_t taskid;
+    
+    // Timing references of the task.
+    sy5_timing timing;
+    
+    // Command line of the task.
+    sy5_string commandline;
+} sy5_task;
+
+// Describes a scheduled task.
+typedef struct sy5_run {
+    // Time of the run in second since EPOCH.
+    uint64_t time;
+    
+    // Exit value of the run.
+    uint16_t exitcode;
+} sy5_run;
 
 #endif // TYPES_H.
