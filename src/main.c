@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
     char *reply_pipe_path = NULL;
 
 #ifdef CASSINI
+    int had_illegal_option = 0;
     char *minutes_str = "*";
     char *hours_str = "*";
     char *daysofweek_str = "*";
@@ -79,11 +80,7 @@ int main(int argc, char *argv[]) {
         case 'h':
             printf("%s", usage_info);
             return 0;
-        case '?':
-            fprintf(stderr, "%s", usage_info);
-            return 0;
 #ifdef CASSINI
-            goto error_with_perror;
         case 'm':
             minutes_str = optarg;
             break;
@@ -131,14 +128,21 @@ int main(int argc, char *argv[]) {
             }
             break;
 #endif
+        case '?':
+            had_illegal_option = 1;
+            break;
         default:
-            fprintf(stderr, "Unimplemented option: %s", optarg);
+            fprintf(stderr, "unimplemented option: %s\n", optarg);
         }
+    }
+    
+    if (had_illegal_option) {
+        fprintf(stderr, EXECUTABLE_NAME ": use `-h` for more informations\n");
     }
 
 #ifdef CASSINI
     if (operation == 0) {
-        fprintf(stderr, EXECUTABLE_NAME ": You need to specify an operation");
+        fprintf(stderr, EXECUTABLE_NAME ": you need to specify an operation\n");
         goto error;
     }
 #endif
@@ -182,14 +186,14 @@ int main(int argc, char *argv[]) {
 #ifdef CASSINI
     int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
     if (request_write_fd == -1) {
-        perror_custom("Daemon is not running or pipes cannot be reached\n");
+        perror_custom("daemon is not running or pipes cannot be reached\n");
         goto error_with_perror;
     }
     
     sy5_request request = {
         .opcode = operation
     };
-    printf(EXECUTABLE_NAME ": Sending to daemon: %x\n", request.opcode);
+    printf(EXECUTABLE_NAME ": sending to daemon: %x\n", request.opcode);
     write(request_write_fd, &request, sizeof(sy5_request));
     close(request_write_fd);
     
@@ -203,7 +207,7 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     close(reply_read_fd);
-    printf(EXECUTABLE_NAME ": Response received: %s\n", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
+    printf(EXECUTABLE_NAME ": response received: %s\n", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
 #else
     DIR* dir = opendir(pipes_directory);
     
@@ -247,7 +251,7 @@ int main(int argc, char *argv[]) {
             };
             write(request_write_fd, &request, sizeof(sy5_request));
             close(request_write_fd);
-            perror_custom("Daemon is already running or pipes are being used by another process\n");
+            perror_custom("daemon is already running or pipes are being used by another process\n");
             goto error;
         }
     // Creates the request pipe file if it doesn't exits.
@@ -279,7 +283,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
     
-    syslog(LOG_NOTICE, "Daemon started\n");
+    syslog(LOG_NOTICE, "daemon started\n");
     
     // Waiting for requests to handle...
     while (1) {
@@ -294,7 +298,7 @@ int main(int argc, char *argv[]) {
         }
         close(request_read_fd);
     
-        syslog(LOG_NOTICE, "Request received: %x\n", request.opcode);
+        syslog(LOG_NOTICE, "request received: %x\n", request.opcode);
     
         if (request.opcode == CLIENT_REQUEST_ALIVE) {
             continue;
@@ -313,11 +317,11 @@ int main(int argc, char *argv[]) {
             reply.reptype = SERVER_REPLY_OK;
             break;
         default:
-            syslog(LOG_ERR, "Unimplemented request: %x", request.opcode);
+            syslog(LOG_ERR, "unimplemented request: %x\n", request.opcode);
             reply.reptype = SERVER_REPLY_ERROR;
         }
     
-        syslog(LOG_NOTICE, "Sending to client: %x\n", reply.reptype);
+        syslog(LOG_NOTICE, "sending to client: %x\n", reply.reptype);
         write(reply_write_fd, &reply, sizeof(sy5_reply));
         close(reply_write_fd);
         
