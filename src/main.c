@@ -14,7 +14,6 @@
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
 #define REPLY_PIPE_NAME "saturnd-reply-pipe"
-#define MAX_MESSAGE_LENGTH 4096
 
 #define print_error(err) fprintf(stderr, "main: " err)
 
@@ -249,8 +248,8 @@ int main(int argc, char *argv[]) {
             goto error_with_perror;
         }
     
-        char request_buffer[MAX_MESSAGE_LENGTH];
-        if (read(request_read_fd, request_buffer, MAX_MESSAGE_LENGTH) == 1) {
+        char request_buffer[PIPE_BUF];
+        if (read(request_read_fd, request_buffer, PIPE_BUF) == 1) {
             goto error_with_perror;
         }
         close(request_read_fd);
