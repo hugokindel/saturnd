@@ -56,9 +56,9 @@ int main(int argc, char *argv[]) {
     char *pipes_directory = NULL;
     char *request_pipe_path =  NULL;
     char *reply_pipe_path = NULL;
+    int had_illegal_option = 0;
 
 #ifdef CASSINI
-    int had_illegal_option = 0;
     char *minutes_str = "*";
     char *hours_str = "*";
     char *daysofweek_str = "*";
