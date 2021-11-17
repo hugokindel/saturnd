@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
     char *strtoull_endp;
 #endif
     
+    // Parse options.
     int opt;
     while ((opt = getopt(argc, argv, "hlcqm:H:d:p:r:x:o:e:")) != -1) {
         switch (opt) {
@@ -125,6 +126,7 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    // Gets the path for each pipe.
     if (pipes_directory == NULL) {
         pipes_directory = calloc(1, PATH_MAX);
         if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
@@ -169,6 +171,7 @@ int main(int argc, char *argv[]) {
 #else
     DIR* dir = opendir(pipes_directory);
     
+    // Creates the pipes' directory (recursively) if it doesn't exist.
     if (!dir) {
         if (ENOENT != errno || mkdir_recursively(pipes_directory, 0777) == -1) {
             goto error_with_perror;
@@ -185,6 +188,7 @@ int main(int argc, char *argv[]) {
     int request_pipe_found = 0;
     int reply_pipe_found = 0;
     
+    // Searches for the pipes files.
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, REQUEST_PIPE_NAME) == 0) {
             request_pipe_found = 1;
@@ -197,34 +201,35 @@ int main(int argc, char *argv[]) {
         }
     }
     
+    // If we find and can open the request pipe file for writing successfully, it means it is already being read by
+    // another process, in which case we can assume a daemon is already running.
     if (request_pipe_found) {
         int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
         if (request_write_fd != -1) {
             write(request_write_fd, "ALIVE", sizeof("ALIVE"));
             close(request_write_fd);
-            print_error("Daemon is already running\n");
+            print_error("Daemon is already running or pipes are being used by another process\n");
             goto error;
         }
+    // Creates the request pipe file if it doesn't exits.
     } else if (mkfifo(request_pipe_path, 0666) == -1) {
         goto error_with_perror;
     }
     
+    // Creates the reply pipe file if it doesn't exist.
     if (!reply_pipe_found && mkfifo(reply_pipe_path, 0666) == -1) {
         goto error_with_perror;
     }
     
     closedir(dir);
 
+    // Attempts a double fork to become a daemon.
     pid_t pid = fork();
     
     if (pid == -1) {
         goto error_with_perror;
     } else if (pid != 0) {
         exit(EXIT_SUCCESS);
-    }
-    
-    if (setsid() == -1) {
-        goto error_with_perror;
     }
     
     pid = fork();
@@ -237,6 +242,7 @@ int main(int argc, char *argv[]) {
     
     syslog(LOG_NOTICE, "Daemon started");
     
+    // Waiting for requests to handle...
     while (1) {
         int request_read_fd = open(request_pipe_path, O_RDONLY);
         if (request_read_fd == -1) {
