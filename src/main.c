@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     close(reply_read_fd);
-    printf(EXECUTABLE_NAME ": response received: %s\n", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
+    printf(EXECUTABLE_NAME ": reply received: %s\n", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
 #else
     DIR* dir = opendir(pipes_directory);
     
@@ -301,6 +301,7 @@ int main(int argc, char *argv[]) {
         syslog(LOG_NOTICE, "request received: %x\n", request.opcode);
     
         if (request.opcode == CLIENT_REQUEST_ALIVE) {
+            syslog(LOG_NOTICE, "no reply required\n");
             continue;
         }
     
