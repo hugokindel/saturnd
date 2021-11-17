@@ -26,6 +26,7 @@ int mkdir_recursively(const char *path, mode_t mode) {
     }
     
     free(directoryName);
+    directoryName = NULL;
     
     return err;
 }

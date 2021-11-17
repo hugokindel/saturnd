@@ -8,10 +8,15 @@
 #include <sy5/utils.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/fcntl.h>
+#include <sy5/client-request.h>
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
 #define REPLY_PIPE_NAME "saturnd-reply-pipe"
+#define MAX_MESSAGE_LENGTH 4096 // TODO: Which limit to impose ?
+
+#define print_error(err) fprintf(stderr, "main: " err)
 
 const char usage_info[] =
 #ifdef CASSINI
@@ -41,6 +46,7 @@ const char usage_info[] =
 
 int main(int argc, char *argv[]) {
     errno = 0;
+    int err = 0;
     char *pipes_directory = NULL;
 
 #ifdef CASSINI
@@ -58,7 +64,7 @@ int main(int argc, char *argv[]) {
         case 'p':
             pipes_directory = strdup(optarg);
             if (pipes_directory == NULL) {
-                goto error;
+                goto error_with_perror;
             }
             break;
         case 'h':
@@ -68,7 +74,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "%s", usage_info);
             return 0;
 #ifdef CASSINI
-            goto error;
+            goto error_with_perror;
         case 'm':
             minutes_str = optarg;
             break;
@@ -91,28 +97,28 @@ int main(int argc, char *argv[]) {
             operation = CLIENT_REQUEST_REMOVE_TASK;
             taskid = strtoull(optarg, &strtoull_endp, 10);
             if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error;
+                goto error_with_perror;
             }
             break;
         case 'x':
             operation = CLIENT_REQUEST_GET_TIMES_AND_EXITCODES;
             taskid = strtoull(optarg, &strtoull_endp, 10);
             if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error;
+                goto error_with_perror;
             }
             break;
         case 'o':
             operation = CLIENT_REQUEST_GET_STDOUT;
             taskid = strtoull(optarg, &strtoull_endp, 10);
             if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error;
+                goto error_with_perror;
             }
             break;
         case 'e':
             operation = CLIENT_REQUEST_GET_STDERR;
             taskid = strtoull(optarg, &strtoull_endp, 10);
             if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error;
+                goto error_with_perror;
             }
             break;
 #endif
@@ -122,34 +128,56 @@ int main(int argc, char *argv[]) {
     if (pipes_directory == NULL) {
         pipes_directory = calloc(1, PATH_MAX);
         if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
-            goto error;
+            goto error_with_perror;
         }
     }
     
     char *request_pipe_path = calloc(1, PATH_MAX);
     if (sprintf(request_pipe_path, "%s%s", pipes_directory, REQUEST_PIPE_NAME) == -1) {
-        goto error;
+        goto error_with_perror;
     }
     
     char *reply_pipe_path = calloc(1, PATH_MAX);
     if (sprintf(reply_pipe_path, "%s%s", pipes_directory, REPLY_PIPE_NAME) == -1) {
-        goto error;
+        goto error_with_perror;
     }
 
 #ifdef CASSINI
-    // TODO: CASSINI
+    syslog(LOG_NOTICE, "Client started");
+    
+    int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
+    if (request_write_fd == -1) {
+        print_error("Daemon is not running or pipes cannot be reached\n");
+        goto error_with_perror;
+    }
+    
+    syslog(LOG_NOTICE, "Sending to daemon: Ping");
+    write(request_write_fd, "Ping", sizeof("Ping"));
+    close(request_write_fd);
+    
+    int reply_read_fd = open(reply_pipe_path, O_RDONLY);
+    if (reply_read_fd == -1) {
+        goto error_with_perror;
+    }
+    
+    char reply_buffer[MAX_MESSAGE_LENGTH];
+    if (read(reply_read_fd, reply_buffer, MAX_MESSAGE_LENGTH) == 1) {
+        goto error_with_perror;
+    }
+    close(reply_read_fd);
+    syslog(LOG_NOTICE, "Response received: %s", reply_buffer);
 #else
     DIR* dir = opendir(pipes_directory);
     
     if (!dir) {
         if (ENOENT != errno || mkdir_recursively(pipes_directory, 0777) == -1) {
-            goto error;
+            goto error_with_perror;
         }
         
         dir = opendir(pipes_directory);
         
         if (!dir) {
-            goto error;
+            goto error_with_perror;
         }
     }
     
@@ -169,9 +197,20 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    if ((!request_pipe_found && mkfifo(request_pipe_path, 0666) == -1) ||
-        (!reply_pipe_found && mkfifo(reply_pipe_path, 0666) == -1)) {
-        goto error;
+    if (request_pipe_found) {
+        int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
+        if (request_write_fd != -1) {
+            write(request_write_fd, "ALIVE", sizeof("ALIVE"));
+            close(request_write_fd);
+            print_error("Daemon is already running\n");
+            goto error;
+        }
+    } else if (mkfifo(request_pipe_path, 0666) == -1) {
+        goto error_with_perror;
+    }
+    
+    if (!reply_pipe_found && mkfifo(reply_pipe_path, 0666) == -1) {
+        goto error_with_perror;
     }
     
     closedir(dir);
@@ -179,42 +218,77 @@ int main(int argc, char *argv[]) {
     pid_t pid = fork();
     
     if (pid == -1) {
-        goto error;
+        goto error_with_perror;
     } else if (pid != 0) {
         exit(EXIT_SUCCESS);
     }
     
     if (setsid() == -1) {
-        goto error;
+        goto error_with_perror;
     }
     
     pid = fork();
     
     if (pid == -1) {
-        goto error;
+        goto error_with_perror;
     } else if (pid != 0) {
         exit(EXIT_SUCCESS);
     }
     
-    syslog(LOG_NOTICE, "daemon started");
+    syslog(LOG_NOTICE, "Daemon started");
     
-    /*while (1) {
-        sleep(5);
-        syslog(LOG_NOTICE, "working");
-    }*/
+    while (1) {
+        int request_read_fd = open(request_pipe_path, O_RDONLY);
+        if (request_read_fd == -1) {
+            goto error_with_perror;
+        }
+    
+        char request_buffer[MAX_MESSAGE_LENGTH];
+        if (read(request_read_fd, request_buffer, MAX_MESSAGE_LENGTH) == 1) {
+            goto error_with_perror;
+        }
+        close(request_read_fd);
+        
+        if (strcmp(request_buffer, "ALIVE") == 0) {
+            continue;
+        }
+    
+        syslog(LOG_NOTICE, "Request received: %s", request_buffer);
+    
+        int reply_write_fd = open(reply_pipe_path, O_WRONLY);
+        if (reply_write_fd == -1) {
+            goto error_with_perror;
+        }
+    
+        syslog(LOG_NOTICE, "Sending to client: Pong");
+        write(reply_write_fd, "Pong", sizeof("Pong"));
+        close(reply_write_fd);
+    }
 #endif
     
-    return EXIT_SUCCESS;
+    goto cleanup;
     
-    error:
+    error_with_perror:
     {
         if (errno != 0) {
             perror("main");
         }
-        
+    }
+    
+    error:
+    {
+        err = 1;
+    }
+    
+    cleanup:
+    {
         free(pipes_directory);
         pipes_directory = NULL;
-        
-        return EXIT_FAILURE;
+        free(request_pipe_path);
+        request_pipe_path = NULL;
+        free(reply_pipe_path);
+        reply_pipe_path = NULL;
     }
+    
+    return err;
 }
