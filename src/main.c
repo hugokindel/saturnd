@@ -16,7 +16,13 @@
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
 #define REPLY_PIPE_NAME "saturnd-reply-pipe"
 
-#define print_error(err) fprintf(stderr, "main: " err)
+#ifdef CASSINI
+#define EXECUTABLE_NAME "cassini"
+#else
+#define EXECUTABLE_NAME "saturnd"
+#endif
+
+#define perror_custom(err) fprintf(stderr, EXECUTABLE_NAME ": " err)
 
 const char usage_info[] =
 #ifdef CASSINI
@@ -46,14 +52,16 @@ const char usage_info[] =
 
 int main(int argc, char *argv[]) {
     errno = 0;
-    int err = 0;
+    int err = EXIT_SUCCESS;
     char *pipes_directory = NULL;
+    char *request_pipe_path =  NULL;
+    char *reply_pipe_path = NULL;
 
 #ifdef CASSINI
     char *minutes_str = "*";
     char *hours_str = "*";
     char *daysofweek_str = "*";
-    uint16_t operation = CLIENT_REQUEST_LIST_TASKS;
+    uint16_t operation = 0;
     uint64_t taskid;
     char *strtoull_endp;
 #endif
@@ -123,40 +131,65 @@ int main(int argc, char *argv[]) {
             }
             break;
 #endif
+        default:
+            fprintf(stderr, "Unimplemented option: %s", optarg);
         }
     }
+
+#ifdef CASSINI
+    if (operation == 0) {
+        fprintf(stderr, EXECUTABLE_NAME ": You need to specify an operation");
+        goto error;
+    }
+#endif
     
     // Gets the path for each pipe.
     if (pipes_directory == NULL) {
         pipes_directory = calloc(1, PATH_MAX);
+        
+        if (pipes_directory == NULL) {
+            goto error_with_perror;
+        }
+        
         if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
+            pipes_directory = NULL;
             goto error_with_perror;
         }
     }
     
-    char *request_pipe_path = calloc(1, PATH_MAX);
-    if (sprintf(request_pipe_path, "%s%s", pipes_directory, REQUEST_PIPE_NAME) == -1) {
+    request_pipe_path = calloc(1, PATH_MAX);
+    
+    if (request_pipe_path == NULL) {
         goto error_with_perror;
     }
     
-    char *reply_pipe_path = calloc(1, PATH_MAX);
+    if (sprintf(request_pipe_path, "%s%s", pipes_directory, REQUEST_PIPE_NAME) == -1) {
+        request_pipe_path = NULL;
+        goto error_with_perror;
+    }
+    
+    reply_pipe_path = calloc(1, PATH_MAX);
+    
+    if (reply_pipe_path == NULL) {
+        goto error_with_perror;
+    }
+    
     if (sprintf(reply_pipe_path, "%s%s", pipes_directory, REPLY_PIPE_NAME) == -1) {
+        reply_pipe_path = NULL;
         goto error_with_perror;
     }
 
 #ifdef CASSINI
-    syslog(LOG_NOTICE, "Client started");
-    
     int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
     if (request_write_fd == -1) {
-        print_error("Daemon is not running or pipes cannot be reached\n");
+        perror_custom("Daemon is not running or pipes cannot be reached\n");
         goto error_with_perror;
     }
     
     sy5_request request = {
-        .opcode = CLIENT_REQUEST_LIST_TASKS
+        .opcode = operation
     };
-    syslog(LOG_NOTICE, "Sending to daemon: %x", request.opcode);
+    printf(EXECUTABLE_NAME ": Sending to daemon: %x\n", request.opcode);
     write(request_write_fd, &request, sizeof(sy5_request));
     close(request_write_fd);
     
@@ -170,7 +203,7 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     close(reply_read_fd);
-    syslog(LOG_NOTICE, "Response received: %s", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
+    printf(EXECUTABLE_NAME ": Response received: %s\n", reply.reptype == SERVER_REPLY_OK ? "OK" : "ERROR");
 #else
     DIR* dir = opendir(pipes_directory);
     
@@ -214,7 +247,7 @@ int main(int argc, char *argv[]) {
             };
             write(request_write_fd, &request, sizeof(sy5_request));
             close(request_write_fd);
-            print_error("Daemon is already running or pipes are being used by another process\n");
+            perror_custom("Daemon is already running or pipes are being used by another process\n");
             goto error;
         }
     // Creates the request pipe file if it doesn't exits.
@@ -246,7 +279,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
     
-    syslog(LOG_NOTICE, "Daemon started");
+    syslog(LOG_NOTICE, "Daemon started\n");
     
     // Waiting for requests to handle...
     while (1) {
@@ -261,8 +294,8 @@ int main(int argc, char *argv[]) {
         }
         close(request_read_fd);
     
-        syslog(LOG_NOTICE, "Request received: %x", request.opcode);
-        
+        syslog(LOG_NOTICE, "Request received: %x\n", request.opcode);
+    
         if (request.opcode == CLIENT_REQUEST_ALIVE) {
             continue;
         }
@@ -272,35 +305,50 @@ int main(int argc, char *argv[]) {
             goto error_with_perror;
         }
     
-        sy5_reply reply = {
-            .reptype = SERVER_REPLY_OK
-        };
-        syslog(LOG_NOTICE, "Sending to client: %x", reply.reptype);
+        int should_terminate = 0;
+        sy5_reply reply;
+        switch (request.opcode) {
+        case CLIENT_REQUEST_TERMINATE:
+            should_terminate = 1;
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        default:
+            syslog(LOG_ERR, "Unimplemented request: %x", request.opcode);
+            reply.reptype = SERVER_REPLY_ERROR;
+        }
+    
+        syslog(LOG_NOTICE, "Sending to client: %x\n", reply.reptype);
         write(reply_write_fd, &reply, sizeof(sy5_reply));
         close(reply_write_fd);
+        
+        if (should_terminate) {
+            break;
+        }
     }
 #endif
     
     goto cleanup;
     
-    error_with_perror:
-    {
-        if (errno != 0) {
-            perror("main");
-        }
+error_with_perror:
+    if (errno != 0) {
+        perror(EXECUTABLE_NAME);
     }
     
-    error:
-    {
-        err = 1;
-    }
+error:
+    err = EXIT_FAILURE;
     
-    cleanup:
-    {
+cleanup:
+    if (pipes_directory != NULL) {
         free(pipes_directory);
         pipes_directory = NULL;
+    }
+    
+    if (request_pipe_path != NULL) {
         free(request_pipe_path);
         request_pipe_path = NULL;
+    }
+    
+    if (reply_pipe_path != NULL) {
         free(reply_pipe_path);
         reply_pipe_path = NULL;
     }

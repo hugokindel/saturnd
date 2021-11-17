@@ -13,7 +13,7 @@ add_executable(cassini
         src/timing.c
         src/utils.c)
 target_include_directories(cassini PRIVATE include)
-target_compile_definitions(cassini PRIVATE CASSINI)
+target_compile_definitions(cassini PRIVATE CASSINI DEBUG)
 
 add_executable(saturnd
         include/sy5/reply.h
@@ -25,4 +25,4 @@ add_executable(saturnd
         src/timing.c
         src/utils.c)
 target_include_directories(saturnd PRIVATE include)
-target_compile_definitions(saturnd PRIVATE SATURND)
+target_compile_definitions(saturnd PRIVATE SATURND DEBUG)
