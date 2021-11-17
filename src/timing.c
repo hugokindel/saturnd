@@ -1,6 +1,9 @@
 #include <sy5/timing.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 
-int timing_from_strings(struct timing *dest, char *minutes_str, char *hours_str, char *daysofweek_str) {
+int timing_from_strings(sy5_timing *dest, char *minutes_str, char *hours_str, char *daysofweek_str) {
     uint64_t field;
     
     // Minutes.
@@ -24,7 +27,7 @@ int timing_from_strings(struct timing *dest, char *minutes_str, char *hours_str,
     return 0;
 }
 
-int timing_string_from_timing(char *dest, const struct timing *timing) {
+int timing_string_from_timing(char *dest, const sy5_timing *timing) {
     unsigned int pos = 0;
     
     // Minutes.

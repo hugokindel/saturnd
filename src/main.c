@@ -161,8 +161,8 @@ int main(int argc, char *argv[]) {
         goto error_with_perror;
     }
     
-    char reply_buffer[MAX_MESSAGE_LENGTH];
-    if (read(reply_read_fd, reply_buffer, MAX_MESSAGE_LENGTH) == 1) {
+    char reply_buffer[PIPE_BUF];
+    if (read(reply_read_fd, reply_buffer, PIPE_BUF) == 1) {
         goto error_with_perror;
     }
     close(reply_read_fd);
