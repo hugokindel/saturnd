@@ -5,9 +5,13 @@
 #include <sy5/utils.h>
 
 int mkdir_recursively(const char *path, mode_t mode) {
+    int err = 0;
     const char *pathIterator = path;
     char *directoryName = calloc(1, strlen(path) + 1);
-    int err = 0;
+
+    if (directoryName == NULL) {
+        return -1;
+    }
     
     while ((pathIterator = strchr(pathIterator, '/')) != NULL) {
         long directoryNameLength = pathIterator - path;

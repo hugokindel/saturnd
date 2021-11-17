@@ -1,16 +1,16 @@
+#include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include <stdio.h>
-#include <errno.h>
 #include <syslog.h>
 #include <limits.h>
-#include <sy5/utils.h>
-#include <sys/stat.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include <sys/fcntl.h>
-#include <sy5/request.h>
+#include <sy5/utils.h>
 #include <sy5/reply.h>
+#include <sy5/request.h>
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
