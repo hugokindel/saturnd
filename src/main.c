@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
             break;
         case 'h':
             printf("%s", usage_info);
-            return 0;
+            return exit_code;
 #ifdef CASSINI
         case 'm':
             opt_minutes = optarg;
