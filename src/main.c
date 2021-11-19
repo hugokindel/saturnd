@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
         goto error;
     }
 #endif
+    
     // Gets the path for each pipe.
     if (pipes_directory_path == NULL) {
         pipes_directory_path = calloc(1, PATH_MAX);
