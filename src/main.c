@@ -11,6 +11,9 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
+#include <sy5/timing.h>
+#include <unistd.h>
+#include <linux/limits.h>
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
@@ -194,6 +197,35 @@ int main(int argc, char *argv[]) {
         .opcode = operation
     };
     printf(EXECUTABLE_NAME ": sending to daemon: %x\n", request.opcode);
+
+
+    switch(operation){
+        case CLIENT_REQUEST_TERMINATE :
+        case CLIENT_REQUEST_LIST_TASKS :
+            printf(EXECUTABLE_NAME ": sending to daemon: no more args \n");
+            break;
+        case CLIENT_REQUEST_CREATE_TASK :
+            if (timing_from_strings(&(request.timing),minutes_str,hours_str,daysofweek_str) == 0) {
+                goto error_with_perror;
+            }
+            char string_timing [TIMING_TEXT_MIN_BUFFERSIZE] ;
+            if (timing_string_from_timing(&string_timing,&(request.timing)) == 0){
+                goto error_with_perror;
+            }
+            //TODO : get commandline
+            printf(EXECUTABLE_NAME ": sending to daemon: timing %s //TODO : and commandline \n", string_timing);
+            break;
+        case CLIENT_REQUEST_REMOVE_TASK :
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES :
+        case CLIENT_REQUEST_GET_STDOUT :
+        case CLIENT_REQUEST_GET_STDERR :
+            request.taskid = taskid;
+            printf(EXECUTABLE_NAME ": sending to daemon: taskid \n");
+            break;
+        default:
+            fprintf(stderr, "unimplemented option: error with request sending \n");
+    }
+
     write(request_write_fd, &request, sizeof(sy5_request));
     close(request_write_fd);
     
