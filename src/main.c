@@ -173,8 +173,24 @@ int main(int argc, char *argv[]) {
 
 #ifdef CASSINI
     // Writes a request.
-    int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
-    assert_printf_perror(request_write_fd != -1, "daemon is not running or pipes cannot be reached\n");
+    int request_write_fd;
+    int connection_attempts = 0;
+    do {
+        request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
+
+        if (request_write_fd == -1) {
+            if (connection_attempts == 10) {
+                syslog(LOG_NOTICE, "daemon unavailable within 100ms, timeout reached\n");
+                printf_error("daemon is not running or pipes cannot be reached\n");
+            }
+
+            syslog(LOG_NOTICE, "daemon unavailable, waiting 10ms\n");
+            connection_attempts++;
+            usleep(10000);
+        } else {
+            break;
+        }
+    } while (true);
     
     syslog(LOG_NOTICE, "sending to daemon `%s`\n", request_item_names()[opt_opcode]);
     

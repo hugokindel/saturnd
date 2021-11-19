@@ -1,7 +1,7 @@
 .PHONY: distclean all
 
 CC ?= gcc
-CCFLAGS ?= -Wall -std=c99 -Iinclude
+CCFLAGS ?= -Wall -std=gnu99 -Iinclude
 
 all: cassini saturnd
 
