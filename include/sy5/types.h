@@ -1,8 +1,12 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-// Includes integer types (`uint8`, `uint16`, `uint32`, `uint64`, `int8`, `int16`, `int32`, `int64`).
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+#define MAX_STRING_LENGTH 4096
+#define MAX_COMMANDLINE_ARGUMENTS 128
 
 // Describes a string.
 typedef struct sy5_string {
@@ -10,7 +14,7 @@ typedef struct sy5_string {
     uint32_t length;
     
     // Data of the string.
-    uint8_t data[];
+    uint8_t data[MAX_STRING_LENGTH];
 } sy5_string;
 
 // Describes multiple time references.
@@ -34,7 +38,7 @@ typedef struct sy5_commandline {
     uint32_t argc;
     
     // Values for each argument.
-    sy5_string argv[];
+    sy5_string argv[MAX_COMMANDLINE_ARGUMENTS];
 } sy5_commandline;
 
 // Describes a scheduled task.
@@ -46,10 +50,10 @@ typedef struct sy5_task {
     sy5_timing timing;
     
     // Command line of the task.
-    sy5_string commandline;
+    sy5_commandline commandline;
 } sy5_task;
 
-// Describes a scheduled task.
+// Describes a scheduled task run.
 typedef struct sy5_run {
     // Time of the run in second since EPOCH.
     uint64_t time;

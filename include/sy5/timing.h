@@ -3,7 +3,7 @@
 
 #include <sy5/types.h>
 
-#define TIMING_TEXT_MIN_BUFFERSIZE 1024
+#define MAX_TIMING_STRING_LENGTH 1024
 
 // Writes the result in *dest. In case of success, returns the number of characters read (>0). In case of failure,
 // returns 0.
@@ -28,5 +28,7 @@ int timing_string_from_field(char *dest, unsigned int min, unsigned int max, uin
 
 // Writes the result in *dest.
 int timing_string_from_range(char *dest, unsigned int start, unsigned int stop);
+
+int write_timing(int fd, const sy5_timing *timing);
 
 #endif // TIMING_H.

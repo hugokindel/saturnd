@@ -3,17 +3,25 @@
 
 #include <sy5/types.h>
 
-// The given request was executed successfully.
-#define SERVER_REPLY_OK 0x4f4b // 'OK'
+enum sy5_reply_item {
+    // The given request was executed successfully.
+    SERVER_REPLY_OK = 0x4F4B, // 'OK'
 
-// The given request failed to execute.
-#define SERVER_REPLY_ERROR 0x4552 // 'ER'
+    // The given request failed to execute.
+    SERVER_REPLY_ERROR = 0x4552, // 'ER'
+    
+    SERVER_REPLY_COUNT
+};
 
-// The task is not found.
-#define SERVER_REPLY_ERROR_NOT_FOUND 0x4e46 // 'NF'
+enum sy5_reply_error_item {
+    // The task is not found.
+    SERVER_REPLY_ERROR_NOT_FOUND = 0x4E46, // 'NF'
 
-// The task was never run.
-#define SERVER_REPLY_ERROR_NEVER_RUN 0x4e52 // 'NR'
+    // The task was never run.
+    SERVER_REPLY_ERROR_NEVER_RUN = 0x4E52, // 'NR'
+    
+    SERVER_REPLY_ERROR_COUNT
+};
 
 // Describes a reply to be sent from the daemon to a client after a request.
 typedef struct sy5_reply {
@@ -67,5 +75,9 @@ typedef struct sy5_reply {
         };
     };
 } sy5_reply;
+
+const char **reply_item_names();
+
+const char **reply_error_item_names();
 
 #endif // SERVER_REPLY_H.

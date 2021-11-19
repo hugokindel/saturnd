@@ -1,10 +1,10 @@
+#include <sy5/utils.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
-#include <sy5/utils.h>
 
-int mkdir_recursively(const char *path, mode_t mode) {
+int mkdir_recursively(const char *path, uint16_t mode) {
     int err = 0;
     const char *pathIterator = path;
     char *directoryName = calloc(1, strlen(path) + 1);

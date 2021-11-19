@@ -1,33 +1,32 @@
-// TODO: Add CLIENT_REQUEST_ALIVE
-
 #ifndef CLIENT_REQUEST_H
 #define CLIENT_REQUEST_H
 
 #include <sy5/types.h>
 
-// Lists all tasks.
-#define CLIENT_REQUEST_LIST_TASKS 0x4c53 // 'LS'.
-
-// Creates a task to perform at a given point in time.
-#define CLIENT_REQUEST_CREATE_TASK 0x4352 // 'CR'.
-
-// Removes a scheduled task.
-#define CLIENT_REQUEST_REMOVE_TASK 0x524d // 'RM'.
-
-// Lists all previous execution times and exit codes of a scheduled task.
-#define CLIENT_REQUEST_GET_TIMES_AND_EXITCODES 0x5458 // 'TX'.
-
-// Displays standard output from the latest execution of a scheduled task.
-#define CLIENT_REQUEST_GET_STDOUT 0x534f // 'SO'.
-
-// Displays standard error output from the latest execution of a scheduled task.
-#define CLIENT_REQUEST_GET_STDERR 0x5345 // 'SE'.
-
-// Terminates the daemon.
-#define CLIENT_REQUEST_TERMINATE 0x544d // 'TM'.
-
-// Sends a message to the daemon to check if he's alive.
-#define CLIENT_REQUEST_ALIVE 0x414c // 'AL'.
+enum sy5_request_item {
+    // Lists all tasks.
+    CLIENT_REQUEST_LIST_TASKS = 0x4C53, // 'LS'.
+    
+    // Creates a task to perform at a given point in time.
+    CLIENT_REQUEST_CREATE_TASK = 0x4352, // 'CR'.
+    
+    // Removes a scheduled task.
+    CLIENT_REQUEST_REMOVE_TASK = 0x524D, // 'RM'.
+    
+    // Lists all previous execution times and exit codes of a scheduled task.
+    CLIENT_REQUEST_GET_TIMES_AND_EXITCODES = 0x5458, // 'TX'.
+    
+    // Displays standard output from the latest execution of a scheduled task.
+    CLIENT_REQUEST_GET_STDOUT = 0x534F, // 'SO'.
+    
+    // Displays standard error output from the latest execution of a scheduled task.
+    CLIENT_REQUEST_GET_STDERR = 0x5345, // 'SE'.
+    
+    // Terminates the daemon.
+    CLIENT_REQUEST_TERMINATE = 0x544D, // 'TM'.
+    
+    CLIENT_REQUEST_COUNT
+};
 
 // Describes a request to be sent from a client to the daemon.
 typedef struct sy5_request {
@@ -55,5 +54,7 @@ typedef struct sy5_request {
         };
     };
 } sy5_request;
+
+const char **request_item_names();
 
 #endif // CLIENT_REQUEST_H.

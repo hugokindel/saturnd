@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <sy5/endian.h>
+#include <unistd.h>
 
 int timing_from_strings(sy5_timing *dest, char *minutes_str, char *hours_str, char *daysofweek_str) {
     uint64_t field;
@@ -16,13 +18,13 @@ int timing_from_strings(sy5_timing *dest, char *minutes_str, char *hours_str, ch
     if (timing_field_from_string(&field, hours_str, 0, 23) <= 0) {
         return -1;
     }
-    dest->hours = (uint32_t) field;
+    dest->hours = (uint32_t)field;
     
     // Days of the week.
     if (timing_field_from_string(&field, daysofweek_str, 0, 6) <= 0) {
         return -1;
     }
-    dest->daysofweek = (uint8_t) field;
+    dest->daysofweek = (uint8_t)field;
     
     return 0;
 }
@@ -187,4 +189,19 @@ int timing_string_from_range(char *dest, unsigned int start, unsigned int stop) 
     }
     
     return sprintf_result;
+}
+
+int write_timing(int fd, const sy5_timing *timing) {
+    uint64_t be_minutes = htobe64(timing->minutes);
+    if (write(fd, &be_minutes, sizeof(uint64_t)) == -1) {
+        return -1;
+    }
+    
+    uint32_t be_hours = htobe32(timing->hours);
+    if (write(fd, &be_hours, sizeof(uint32_t)) == -1) {
+        return -1;
+    }
+    
+    // `timing->daysofweek` doesn't have to be converted because it's only one byte.
+    return (int)write(fd, &timing->daysofweek, sizeof(uint8_t));
 }
