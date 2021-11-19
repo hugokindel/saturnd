@@ -28,6 +28,7 @@ enum sy5_request_item {
     CLIENT_REQUEST_COUNT
 };
 
+// TODO: Remove ?
 // Describes a request to be sent from a client to the daemon.
 typedef struct sy5_request {
     // Operation code (request identifier).
@@ -38,10 +39,10 @@ typedef struct sy5_request {
         // CLIENT_REQUEST_CREATE_TASK
         struct {
             // Precise when to perform a given task.
-            sy5_timing timing;
+            timing timing;
             
             // Command line arguments of a given task.
-            sy5_commandline commandline;
+            commandline commandline;
         };
         
         // CLIENT_REQUEST_REMOVE_TASK

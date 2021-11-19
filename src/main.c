@@ -11,10 +11,6 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
-#include <sy5/timing.h>
-#include <sy5/string.h>
-#include <sy5/commandline.h>
-#include <sy5/endian.h>
 #include <time.h>
 #ifdef __linux__
 #include <unistd.h>
@@ -29,13 +25,9 @@
 #define EXECUTABLE_NAME "saturnd"
 #endif
 
-#define perror_custom(err) fprintf(stderr, EXECUTABLE_NAME ": " err)
-
-// TODO: SATURND
-/*#ifdef SATURND
-#define MAX_TASKS 256
-sy5_task tasks[MAX_TASKS];
-#endif*/
+#define printf_error(error) fprintf(stderr, EXECUTABLE_NAME ": " error); goto error_with_perror
+#define assert_perror(condition) if (!(condition)) { goto error_with_perror; } (void)0
+#define assert_printf_perror(condition, error) if (!(condition)) { printf_error(error); } (void)0
 
 const char usage_info[] =
 #ifdef CASSINI
@@ -69,13 +61,13 @@ int main(int argc, char *argv[]) {
     char *pipes_directory = NULL;
     char *request_pipe_path =  NULL;
     char *reply_pipe_path = NULL;
-    int had_illegal_option = 0;
+    bool had_illegal_option = false;
 #ifdef CASSINI
-    char *minutes_str = "*";
-    char *hours_str = "*";
-    char *daysofweek_str = "*";
-    uint16_t opcode = 0;
-    uint64_t taskid;
+    char *opt_minutes = "*";
+    char *opt_hours = "*";
+    char *opt_daysofweek = "*";
+    uint16_t opt_opcode = 0;
+    uint64_t opt_taskid;
     char *strtoull_endp;
 #endif
     
@@ -94,54 +86,46 @@ int main(int argc, char *argv[]) {
             return 0;
 #ifdef CASSINI
         case 'm':
-            minutes_str = optarg;
+            opt_minutes = optarg;
             break;
         case 'H':
-            hours_str = optarg;
+            opt_hours = optarg;
             break;
         case 'd':
-            daysofweek_str = optarg;
+            opt_daysofweek = optarg;
             break;
         case 'l':
-            opcode = CLIENT_REQUEST_LIST_TASKS;
+            opt_opcode = CLIENT_REQUEST_LIST_TASKS;
             break;
         case 'c':
-            opcode = CLIENT_REQUEST_CREATE_TASK;
+            opt_opcode = CLIENT_REQUEST_CREATE_TASK;
             break;
         case 'q':
-            opcode = CLIENT_REQUEST_TERMINATE;
+            opt_opcode = CLIENT_REQUEST_TERMINATE;
             break;
         case 'r':
-            opcode = CLIENT_REQUEST_REMOVE_TASK;
-            taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error_with_perror;
-            }
+            opt_opcode = CLIENT_REQUEST_REMOVE_TASK;
+            opt_taskid = strtoull(optarg, &strtoull_endp, 10);
+            assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'x':
-            opcode = CLIENT_REQUEST_GET_TIMES_AND_EXITCODES;
-            taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error_with_perror;
-            }
+            opt_opcode = CLIENT_REQUEST_GET_TIMES_AND_EXITCODES;
+            opt_taskid = strtoull(optarg, &strtoull_endp, 10);
+            assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'o':
-            opcode = CLIENT_REQUEST_GET_STDOUT;
-            taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error_with_perror;
-            }
+            opt_opcode = CLIENT_REQUEST_GET_STDOUT;
+            opt_taskid = strtoull(optarg, &strtoull_endp, 10);
+            assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'e':
-            opcode = CLIENT_REQUEST_GET_STDERR;
-            taskid = strtoull(optarg, &strtoull_endp, 10);
-            if (strtoull_endp == optarg || strtoull_endp[0] != '\0') {
-                goto error_with_perror;
-            }
+            opt_opcode = CLIENT_REQUEST_GET_STDERR;
+            opt_taskid = strtoull(optarg, &strtoull_endp, 10);
+            assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
 #endif
         case '?':
-            had_illegal_option = 1;
+            had_illegal_option = true;
             break;
         default:
             fprintf(stderr, "unimplemented option: %s\n", optarg);
@@ -153,7 +137,7 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef CASSINI
-    if (opcode == 0) {
+    if (opt_opcode == 0) {
         fprintf(stderr, EXECUTABLE_NAME ": you need to specify an opcode\n");
         goto error;
     }
@@ -161,10 +145,7 @@ int main(int argc, char *argv[]) {
     // Gets the path for each pipe.
     if (pipes_directory == NULL) {
         pipes_directory = calloc(1, PATH_MAX);
-        
-        if (pipes_directory == NULL) {
-            goto error_with_perror;
-        }
+        assert_perror(pipes_directory != NULL);
         
         if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
             pipes_directory = NULL;
@@ -173,10 +154,7 @@ int main(int argc, char *argv[]) {
     }
     
     request_pipe_path = calloc(1, PATH_MAX);
-    
-    if (request_pipe_path == NULL) {
-        goto error_with_perror;
-    }
+    assert_perror(request_pipe_path != NULL);
     
     if (sprintf(request_pipe_path, "%s%s%s", pipes_directory, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REQUEST_PIPE_NAME) == -1) {
         request_pipe_path = NULL;
@@ -184,10 +162,7 @@ int main(int argc, char *argv[]) {
     }
     
     reply_pipe_path = calloc(1, PATH_MAX);
-    
-    if (reply_pipe_path == NULL) {
-        goto error_with_perror;
-    }
+    assert_perror(reply_pipe_path != NULL);
     
     if (sprintf(reply_pipe_path, "%s%s%s", pipes_directory, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REPLY_PIPE_NAME) == -1) {
         reply_pipe_path = NULL;
@@ -195,92 +170,114 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef CASSINI
+    // Writes a request.
     int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
-    if (request_write_fd == -1) {
-        perror_custom("daemon is not running or pipes cannot be reached\n");
-        goto error_with_perror;
-    }
+    assert_printf_perror(request_write_fd != -1, "daemon is not running or pipes cannot be reached\n");
     
-    syslog(LOG_NOTICE, "sending to daemon `%s`\n", request_item_names()[opcode]);
-    int be_opcode = htobe16(opcode);
-    if (write(request_write_fd, &be_opcode, sizeof(uint16_t)) == -1) {
-        goto error_with_perror;
-    }
-    switch (opcode) {
+    syslog(LOG_NOTICE, "sending to daemon `%s`\n", request_item_names()[opt_opcode]);
+    
+    assert_perror(write_uint16(request_write_fd, &opt_opcode) != -1);
+    
+    switch (opt_opcode) {
     case CLIENT_REQUEST_CREATE_TASK: {
-        sy5_timing timing;
-        if (timing_from_strings(&timing, minutes_str, hours_str, daysofweek_str) == -1) {
-            goto error_with_perror;
-        }
-        if (write_timing(request_write_fd, &timing) == -1) {
-            goto error_with_perror;
-        }
-        sy5_commandline commandline;
+        timing timing;
+        assert_perror(timing_from_strings(&timing, opt_minutes, opt_hours, opt_daysofweek) != -1);
+        assert_perror(write_timing(request_write_fd, &timing) != -1);
+        commandline commandline;
         commandline_from_args(&commandline, argc - optind, argv + optind);
-        if (write_commandline(request_write_fd, &commandline) == -1) {
-            goto error_with_perror;
-        }
+        assert_perror(write_commandline(request_write_fd, &commandline) != -1);
+        break;
+    }
+    case CLIENT_REQUEST_REMOVE_TASK:
+    case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
+    case CLIENT_REQUEST_GET_STDOUT:
+    case CLIENT_REQUEST_GET_STDERR: {
+        assert_perror(write_uint64(request_write_fd, &opt_taskid) != -1);
         break;
     }
     default:
         break;
     }
+    
     close(request_write_fd);
     
+    // Receive
     int reply_read_fd = open(reply_pipe_path, O_RDONLY);
-    if (reply_read_fd == -1) {
-        goto error_with_perror;
-    }
+    assert_perror(reply_read_fd != -1);
     
-    sy5_reply reply;
-    if (read(reply_read_fd, &reply, sizeof(sy5_reply)) == 1) {
-        goto error_with_perror;
-    }
-    close(reply_read_fd);
-    if (reply.reptype == SERVER_REPLY_OK) {
-        /*switch (opcode) {
-        case CLIENT_REQUEST_LIST_TASKS:
-            for (int i = 0; i < reply.nbtasks; i++) {
-                char task_str[MAX_TIMING_STRING_LENGTH];
-                timing_string_from_timing(task_str, &reply.tasks[i].timing);
-                printf("%llu: %s", reply.tasks[i].taskid, task_str);
-                for (int j = 0; j < reply.tasks[i].commandline.argc; j++) {
-                    char argv_str[MAX_TIMING_STRING_LENGTH];
-                    cstring_from_string(argv_str, reply.tasks[i].commandline.argv[j]);
+    uint16_t reptype;
+    assert_perror(read_uint16(reply_read_fd, &reptype) != -1);
+    
+    if (reptype == SERVER_REPLY_OK) {
+        syslog(LOG_NOTICE, "reply received `%s`\n", reply_item_names()[reptype]);
+        
+        switch (opt_opcode) {
+        case CLIENT_REQUEST_LIST_TASKS: {
+            uint32_t nbtasks;
+            assert_perror(read_uint32(reply_read_fd, &nbtasks) != -1);
+            for (int i = 0; i < nbtasks; i++) {
+                uint64_t taskid;
+                assert_perror(read_uint64(reply_read_fd, &taskid) != -1);
+                timing timing;
+                assert_perror(read_timing(reply_read_fd, &timing) != -1);
+                char timing_str[MAX_TIMING_STRING_LENGTH];
+                assert_perror(timing_string_from_timing(timing_str, &timing) != -1);
+                commandline commandline;
+                assert_perror(read_commandline(reply_read_fd, &commandline) != -1);
+                printf("%llu: %s", taskid, timing_str);
+                for (int j = 0; j < commandline.argc; j++) {
+                    char argv_str[MAX_STRING_LENGTH];
+                    cstring_from_string(argv_str, &commandline.argv[j]);
                     printf(" %s", argv_str);
                 }
                 printf("\n");
             }
             break;
-        case CLIENT_REQUEST_CREATE_TASK:
-            printf("%llu", reply.taskid);
+        }
+        case CLIENT_REQUEST_CREATE_TASK: {
+            uint64_t taskid;
+            assert_perror(read_uint64(reply_read_fd, &taskid) != -1);
+            printf("%llu\n", taskid);
             break;
-        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-            for (int i = 0; i < reply.nbruns; i++) {
-                time_t timestamp = reply.run[i].time;
-                struct tm* time_info = localtime(&timestamp);
+        }
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
+            uint32_t nbruns;
+            assert_perror(read_uint32(reply_read_fd, &nbruns) != -1);
+            for (int i = 0; i < nbruns; i++) {
+                uint64_t time;
+                assert_perror(read_uint64(reply_read_fd, &time) != -1);
+                time_t timestamp = (time_t)time;
+                struct tm *time_info = localtime(&timestamp);
                 char time_str[26];
-                strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info);
-                printf("%s %d", time_str, reply.run[i].exitcode);
+                assert_perror(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1);
+                uint16_t exitcode;
+                assert_perror(read_uint16(reply_read_fd, &exitcode) != -1);
+                printf("%s %d\n", time_str, exitcode);
             }
             break;
+        }
         case CLIENT_REQUEST_GET_STDOUT:
         case CLIENT_REQUEST_GET_STDERR: {
-            char output_str[MAX_TIMING_STRING_LENGTH];
-            cstring_from_string(output_str, reply.output);
-            printf("%s", output_str);
+            string output;
+            assert_perror(read_string(reply_read_fd, &output) != -1);
+            char output_str[MAX_STRING_LENGTH];
+            cstring_from_string(output_str, &output);
+            printf("%s\n", output_str);
             break;
         }
         default:
             break;
-        }*/
-        
-        syslog(LOG_NOTICE, "reply received `%s`\n", reply_item_names()[reply.reptype]);
+        }
     } else {
-        syslog(LOG_NOTICE, "reply received `%s` with error `%s`\n", reply_item_names()[reply.reptype], reply_error_item_names()[reply.errcode]);
+        uint16_t errcode;
+        assert_perror(read_uint16(reply_read_fd, &errcode) != -1);
+        syslog(LOG_NOTICE, "reply received `%s` with error `%s`\n", reply_item_names()[reptype], reply_error_item_names()[errcode]);
+        goto error;
     }
+    
+    close(reply_read_fd);
 #else
-    DIR* dir = opendir(pipes_directory);
+    DIR *dir = opendir(pipes_directory);
     
     // Creates the pipes' directory (recursively) if it doesn't exist.
     if (!dir) {
@@ -322,7 +319,7 @@ int main(int argc, char *argv[]) {
             };
             write(request_write_fd, &request, sizeof(sy5_request));
             close(request_write_fd);
-            perror_custom("daemon is already running or pipes are being used by another process\n");
+            printf_error("daemon is already running or pipes are being used by another process\n");
             goto error;
         }
     // Creates the request pipe file if it doesn't exits.

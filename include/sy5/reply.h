@@ -23,6 +23,7 @@ enum sy5_reply_error_item {
     SERVER_REPLY_ERROR_COUNT
 };
 
+// TODO: Remove ?
 // Describes a reply to be sent from the daemon to a client after a request.
 typedef struct sy5_reply {
     // Operation code (reply identifier).
@@ -38,7 +39,7 @@ typedef struct sy5_reply {
             uint32_t nbtasks;
             
             // Tasks data.
-            sy5_task tasks[];
+            task tasks[];
         };
         
         // CLIENT_REQUEST_CREATE_TASK
@@ -53,14 +54,14 @@ typedef struct sy5_reply {
             uint32_t nbruns;
         
             // Tasks data.
-            sy5_run run[];
+            run run[];
         };
     
         // CLIENT_REQUEST_GET_STDOUT
         // CLIENT_REQUEST_GET_STDERR
         struct {
             // Output string.
-            sy5_string output;
+            string output;
         };
     
         // -> WHEN REPTYPE IS SERVER_REPLY_ERROR
