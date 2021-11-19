@@ -57,11 +57,12 @@ const char usage_info[] =
 
 int main(int argc, char *argv[]) {
     errno = 0;
-    int err = EXIT_SUCCESS;
-    char *pipes_directory = NULL;
+    
+    int exit_code = EXIT_SUCCESS;
+    char *pipes_directory_path = NULL;
     char *request_pipe_path =  NULL;
     char *reply_pipe_path = NULL;
-    bool had_illegal_option = false;
+    bool used_unexisting_option = false;
 #ifdef CASSINI
     char *opt_minutes = "*";
     char *opt_hours = "*";
@@ -76,8 +77,8 @@ int main(int argc, char *argv[]) {
     while ((opt = getopt(argc, argv, "hlcqm:H:d:p:r:x:o:e:")) != -1) {
         switch (opt) {
         case 'p':
-            pipes_directory = strdup(optarg);
-            if (pipes_directory == NULL) {
+            pipes_directory_path = strdup(optarg);
+            if (pipes_directory_path == NULL) {
                 goto error_with_perror;
             }
             break;
@@ -125,14 +126,14 @@ int main(int argc, char *argv[]) {
             break;
 #endif
         case '?':
-            had_illegal_option = true;
+            used_unexisting_option = true;
             break;
         default:
             fprintf(stderr, "unimplemented option: %s\n", optarg);
         }
     }
     
-    if (had_illegal_option) {
+    if (used_unexisting_option) {
         fprintf(stderr, EXECUTABLE_NAME ": use `-h` for more informations\n");
     }
 
@@ -143,12 +144,12 @@ int main(int argc, char *argv[]) {
     }
 #endif
     // Gets the path for each pipe.
-    if (pipes_directory == NULL) {
-        pipes_directory = calloc(1, PATH_MAX);
-        assert_perror(pipes_directory != NULL);
+    if (pipes_directory_path == NULL) {
+        pipes_directory_path = calloc(1, PATH_MAX);
+        assert_perror(pipes_directory_path != NULL);
         
-        if (sprintf(pipes_directory, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
-            pipes_directory = NULL;
+        if (sprintf(pipes_directory_path, "/tmp/%s/saturnd/pipes/", getlogin()) == -1) {
+            pipes_directory_path = NULL;
             goto error_with_perror;
         }
     }
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]) {
     request_pipe_path = calloc(1, PATH_MAX);
     assert_perror(request_pipe_path != NULL);
     
-    if (sprintf(request_pipe_path, "%s%s%s", pipes_directory, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REQUEST_PIPE_NAME) == -1) {
+    if (sprintf(request_pipe_path, "%s%s%s", pipes_directory_path, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REQUEST_PIPE_NAME) == -1) {
         request_pipe_path = NULL;
         goto error_with_perror;
     }
@@ -164,7 +165,7 @@ int main(int argc, char *argv[]) {
     reply_pipe_path = calloc(1, PATH_MAX);
     assert_perror(reply_pipe_path != NULL);
     
-    if (sprintf(reply_pipe_path, "%s%s%s", pipes_directory, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REPLY_PIPE_NAME) == -1) {
+    if (sprintf(reply_pipe_path, "%s%s%s", pipes_directory_path, request_pipe_path[strlen(request_pipe_path) - 1] == '/' ? "" : "/", REPLY_PIPE_NAME) == -1) {
         reply_pipe_path = NULL;
         goto error_with_perror;
     }
@@ -421,12 +422,12 @@ error_with_perror:
     }
     
 error:
-    err = EXIT_FAILURE;
+    exit_code = EXIT_FAILURE;
     
 cleanup:
-    if (pipes_directory != NULL) {
-        free(pipes_directory);
-        pipes_directory = NULL;
+    if (pipes_directory_path != NULL) {
+        free(pipes_directory_path);
+        pipes_directory_path = NULL;
     }
     
     if (request_pipe_path != NULL) {
@@ -439,5 +440,5 @@ cleanup:
         reply_pipe_path = NULL;
     }
     
-    return err;
+    return exit_code;
 }
