@@ -5,10 +5,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// The maximum length of a string.
 #define MAX_STRING_LENGTH 4096
+
+// The maximum number of arguments within a command line.
 #define MAX_COMMANDLINE_ARGUMENTS 128
+
+// The maximum length of a timing when defined as a string.
 #define MAX_TIMING_STRING_LENGTH 1024
 
+// Assert that returns -1 in case of error.
 #define assert(condition) if (!(condition)) { return -1; } (void)0
 
 // Describes a string.
@@ -44,8 +50,8 @@ typedef struct commandline {
     string argv[MAX_COMMANDLINE_ARGUMENTS];
 } commandline;
 
-// TODO: Remove ?
 // Describes a scheduled task.
+// TODO: Remove ?
 typedef struct task {
     // ID of the task.
     uint64_t taskid;
@@ -57,8 +63,8 @@ typedef struct task {
     commandline commandline;
 } task;
 
-// TODO: Remove ?
 // Describes a scheduled task run.
+// TODO: Remove ?
 typedef struct run {
     // Time of the run in second since EPOCH.
     uint64_t time;

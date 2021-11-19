@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
     char *opt_hours = "*";
     char *opt_daysofweek = "*";
     uint16_t opt_opcode = 0;
-    uint64_t opt_taskid;
-    char *strtoull_endp;
+    uint64_t opt_taskid = 0;
+    char *strtoull_endp = NULL;
 #endif
     
     // Parse options.

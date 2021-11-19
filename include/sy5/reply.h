@@ -10,6 +10,7 @@ enum sy5_reply_item {
     // The given request failed to execute.
     SERVER_REPLY_ERROR = 0x4552, // 'ER'
     
+    // The count of items in the enum.
     SERVER_REPLY_COUNT
 };
 
@@ -20,11 +21,12 @@ enum sy5_reply_error_item {
     // The task was never run.
     SERVER_REPLY_ERROR_NEVER_RUN = 0x4E52, // 'NR'
     
+    // The count of items in the enum.
     SERVER_REPLY_ERROR_COUNT
 };
 
-// TODO: Remove ?
 // Describes a reply to be sent from the daemon to a client after a request.
+// TODO: Remove ?
 typedef struct sy5_reply {
     // Operation code (reply identifier).
     uint16_t reptype;
@@ -77,8 +79,10 @@ typedef struct sy5_reply {
     };
 } sy5_reply;
 
+// TODO: Add documentation.
 const char **reply_item_names();
 
+// TODO: Add documentation.
 const char **reply_error_item_names();
 
 #endif // SERVER_REPLY_H.

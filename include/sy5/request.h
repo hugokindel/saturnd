@@ -25,11 +25,12 @@ enum sy5_request_item {
     // Terminates the daemon.
     CLIENT_REQUEST_TERMINATE = 0x544D, // 'TM'.
     
+    // The count of items in the enum.
     CLIENT_REQUEST_COUNT
 };
 
-// TODO: Remove ?
 // Describes a request to be sent from a client to the daemon.
+// TODO: Remove ?
 typedef struct sy5_request {
     // Operation code (request identifier).
     uint16_t opcode;
@@ -56,6 +57,7 @@ typedef struct sy5_request {
     };
 } sy5_request;
 
+// TODO: Add documentation.
 const char **request_item_names();
 
 #endif // CLIENT_REQUEST_H.
