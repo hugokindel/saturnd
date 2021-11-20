@@ -51,7 +51,6 @@ typedef struct commandline {
 } commandline;
 
 // Describes a scheduled task.
-// TODO: Remove ?
 typedef struct task {
     // ID of the task.
     uint64_t taskid;
