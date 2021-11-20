@@ -1,8 +1,11 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include <stdint.h>
+// Includes the `bool` type.
 #include <stdbool.h>
+
+// Includes integer types (`uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t`, `int64_t`).
+#include <stdint.h>
 
 // The maximum length of a string.
 #define MAX_STRING_LENGTH 1024
