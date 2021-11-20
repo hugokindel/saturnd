@@ -27,7 +27,6 @@
 
 #define printf_error(error) fprintf(stderr, EXECUTABLE_NAME ": " error); goto error_with_perror
 #define assert_perror(condition) if (!(condition)) { goto error_with_perror; } (void)0
-#define assert_printf_perror(condition, error) if (!(condition)) { printf_error(error); } (void)0
 
 const char usage_info[] =
 #ifdef CASSINI
@@ -78,9 +77,7 @@ int main(int argc, char *argv[]) {
         switch (opt) {
         case 'p':
             pipes_directory_path = strdup(optarg);
-            if (pipes_directory_path == NULL) {
-                goto error_with_perror;
-            }
+            assert_perror(pipes_directory_path != NULL);
             break;
         case 'h':
             printf("%s", usage_info);
