@@ -242,7 +242,11 @@ int main(int argc, char *argv[]) {
                 assert_perror(timing_string_from_timing(timing_str, &timing) != -1);
                 commandline commandline;
                 assert_perror(read_commandline(reply_read_fd, &commandline) != -1);
+#ifdef __APPLE__
                 printf("%llu: %s", taskid, timing_str);
+#else
+                printf("%lu: %s", taskid, timing_str);
+#endif
                 for (int j = 0; j < commandline.argc; j++) {
                     char argv_str[MAX_STRING_LENGTH];
                     cstring_from_string(argv_str, &commandline.argv[j]);
@@ -255,7 +259,11 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_CREATE_TASK: {
             uint64_t taskid;
             assert_perror(read_uint64(reply_read_fd, &taskid) != -1);
+#ifdef __APPLE__
             printf("%llu\n", taskid);
+#else
+            printf("%lu\n", taskid);
+#endif
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
