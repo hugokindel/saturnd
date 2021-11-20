@@ -1,6 +1,8 @@
 #include <sy5/request.h>
 
 static const char *request_item_names_array[] = {
+    [0] = "CLIENT_REQUEST_NULL",
+    
     [CLIENT_REQUEST_LIST_TASKS] = "CLIENT_REQUEST_LIST_TASKS",
     [CLIENT_REQUEST_CREATE_TASK] = "CLIENT_REQUEST_CREATE_TASK",
     [CLIENT_REQUEST_REMOVE_TASK] = "CLIENT_REQUEST_REMOVE_TASK",

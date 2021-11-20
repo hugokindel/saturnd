@@ -3,7 +3,7 @@
 
 #include <sy5/types.h>
 
-enum sy5_request_item {
+enum request_item {
     // Lists all tasks.
     CLIENT_REQUEST_LIST_TASKS = 0x4C53, // 'LS'.
     
@@ -30,8 +30,7 @@ enum sy5_request_item {
 };
 
 // Describes a request to be sent from a client to the daemon.
-// TODO: Remove ?
-typedef struct sy5_request {
+typedef struct request {
     // Operation code (request identifier).
     uint16_t opcode;
     
@@ -55,7 +54,7 @@ typedef struct sy5_request {
             uint64_t taskid;
         };
     };
-} sy5_request;
+} request;
 
 // TODO: Add documentation.
 const char **request_item_names();

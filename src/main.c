@@ -25,7 +25,8 @@
 #define EXECUTABLE_NAME "saturnd"
 #endif
 
-#define printf_error(error) fprintf(stderr, EXECUTABLE_NAME ": " error); goto error_with_perror
+#define printf_error(err) fprintf(stderr, EXECUTABLE_NAME ": " err); goto error
+#define printf_perror(err) fprintf(stderr, EXECUTABLE_NAME ": " err); goto error_with_perror
 #define assert_perror(condition) if (!(condition)) { goto error_with_perror; } (void)0
 
 const char usage_info[] =
@@ -178,10 +179,10 @@ int main(int argc, char *argv[]) {
         if (request_write_fd == -1) {
             if (connection_attempts == 10) {
                 syslog(LOG_NOTICE, "daemon unavailable within 100ms, timeout reached\n");
-                printf_error("daemon is not running or pipes cannot be reached\n");
+                printf_perror("daemon is not running or pipes cannot be reached\n");
             }
 
-            syslog(LOG_NOTICE, "daemon unavailable, waiting 10ms\n");
+            syslog(LOG_NOTICE, "daemon unavailable, waiting 10ms...\n");
             connection_attempts++;
             usleep(10000);
         } else {
@@ -290,19 +291,13 @@ int main(int argc, char *argv[]) {
     
     close(reply_read_fd);
 #else
-    DIR *dir = opendir(pipes_directory);
+    DIR *dir = opendir(pipes_directory_path);
     
     // Creates the pipes' directory (recursively) if it doesn't exist.
     if (!dir) {
-        if (ENOENT != errno || mkdir_recursively(pipes_directory, 0777) == -1) {
-            goto error_with_perror;
-        }
-        
-        dir = opendir(pipes_directory);
-        
-        if (!dir) {
-            goto error_with_perror;
-        }
+        assert_perror(errno == ENOENT && mkdir_recursively(pipes_directory_path, 0777) != -1);
+        dir = opendir(pipes_directory_path);
+        assert_perror(dir);
     }
     
     struct dirent *entry;
@@ -327,40 +322,33 @@ int main(int argc, char *argv[]) {
     if (request_pipe_found) {
         int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
         if (request_write_fd != -1) {
-            sy5_request request = {
-                .opcode = 0
-            };
-            write(request_write_fd, &request, sizeof(sy5_request));
+            uint16_t opcode = 0;
+            write_uint16(request_write_fd, &opcode);
             close(request_write_fd);
             printf_error("daemon is already running or pipes are being used by another process\n");
-            goto error;
         }
     // Creates the request pipe file if it doesn't exits.
-    } else if (mkfifo(request_pipe_path, 0666) == -1) {
-        goto error_with_perror;
+    } else {
+        assert_perror(mkfifo(request_pipe_path, 0666) != -1);
     }
     
     // Creates the reply pipe file if it doesn't exist.
-    if (!reply_pipe_found && mkfifo(reply_pipe_path, 0666) == -1) {
-        goto error_with_perror;
-    }
+    assert_perror(reply_pipe_found || mkfifo(reply_pipe_path, 0666) != -1);
     
     closedir(dir);
 
     // Attempts a double fork to become a daemon.
     pid_t pid = fork();
     
-    if (pid == -1) {
-        goto error_with_perror;
-    } else if (pid != 0) {
+    assert_perror(pid != -1);
+    if (pid != 0) {
         exit(EXIT_SUCCESS);
     }
     
     pid = fork();
     
-    if (pid == -1) {
-        goto error_with_perror;
-    } else if (pid != 0) {
+    assert_perror(pid != -1);
+    if (pid != 0) {
         exit(EXIT_SUCCESS);
     }
     
@@ -369,61 +357,57 @@ int main(int argc, char *argv[]) {
     // Waiting for requests to handle...
     while (1) {
         int request_read_fd = open(request_pipe_path, O_RDONLY);
-        if (request_read_fd == -1) {
-            goto error_with_perror;
-        }
+        assert_perror(request_read_fd != -1);
     
-        sy5_request request;
-        if (read(request_read_fd, &request, sizeof(sy5_request)) == 1) {
-            goto error_with_perror;
-        }
-        close(request_read_fd);
+        request request;
+        assert_perror(read_uint16(request_read_fd, &request.opcode) != -1);
     
         syslog(LOG_NOTICE, "request received `%s`\n", request_item_names()[request.opcode]);
     
         if (request.opcode == 0) {
             syslog(LOG_NOTICE, "no reply required\n");
+            close(request_read_fd);
             continue;
         }
         
-        int reply_write_fd = open(reply_pipe_path, O_WRONLY);
-        if (reply_write_fd == -1) {
-            goto error_with_perror;
-        }
-    
-        int should_terminate = 0;
-        sy5_reply reply;
+        reply reply;
         switch (request.opcode) {
-        case CLIENT_REQUEST_CREATE_TASK:
-            reply.reptype = SERVER_REPLY_OK;
-            syslog(LOG_NOTICE, "with %d arguments", request.commandline.argc);
-            for (int i = 0; i < request.commandline.argc; i++) {
-                char argv[MAX_STRING_LENGTH];
-                assert_perror(cstring_from_string(argv, request.commandline.argv[i]) != -1);
-                syslog(LOG_NOTICE, "- %s", argv);
-            }
-            break;
         case CLIENT_REQUEST_TERMINATE:
-            should_terminate = 1;
+        default:
             reply.reptype = SERVER_REPLY_OK;
             break;
-        default:
-            syslog(LOG_ERR, "unimplemented request: %x\n", request.opcode);
-            reply.reptype = SERVER_REPLY_ERROR;
+        }
+        
+        close(request_read_fd);
+    
+        int reply_write_fd = open(reply_pipe_path, O_WRONLY);
+        assert_perror(reply_write_fd != -1);
+    
+        if (reply.reptype == SERVER_REPLY_OK) {
+            syslog(LOG_NOTICE, "sending to client `%s`\n", reply_item_names()[reply.reptype]);
+        } else {
+            syslog(LOG_NOTICE, "sending to client `%s` with error `%s`\n", reply_item_names()[reply.reptype], reply_error_item_names()[reply.errcode]);
+        }
+        
+        write_uint16(reply_write_fd, &reply.reptype);
+        
+        if (reply.reptype == SERVER_REPLY_OK) {
+            switch (request.opcode) {
+            default:
+                break;
+            }
+        } else {
+            write_uint16(reply_write_fd, &reply.errcode);
         }
     
-        if (reply.reptype == SERVER_REPLY_ERROR) {
-            syslog(LOG_NOTICE, "sending to client `%s` with error `%s`\n", reply_item_names()[reply.reptype], reply_error_item_names()[reply.errcode]);
-        } else {
-            syslog(LOG_NOTICE, "sending to client `%s`\n", reply_item_names()[reply.reptype]);
-        }
-        write(reply_write_fd, &reply, sizeof(sy5_reply));
         close(reply_write_fd);
         
-        if (should_terminate) {
+        if (request.opcode == CLIENT_REQUEST_TERMINATE) {
             break;
         }
     }
+    
+    syslog(LOG_NOTICE, "daemon shutting down...");
 #endif
     
     goto cleanup;

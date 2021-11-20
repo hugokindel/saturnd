@@ -3,7 +3,7 @@
 
 #include <sy5/types.h>
 
-enum sy5_reply_item {
+enum reply_item {
     // The given request was executed successfully.
     SERVER_REPLY_OK = 0x4F4B, // 'OK'
 
@@ -14,7 +14,7 @@ enum sy5_reply_item {
     SERVER_REPLY_COUNT
 };
 
-enum sy5_reply_error_item {
+enum reply_error_item {
     // The task is not found.
     SERVER_REPLY_ERROR_NOT_FOUND = 0x4E46, // 'NF'
 
@@ -26,8 +26,7 @@ enum sy5_reply_error_item {
 };
 
 // Describes a reply to be sent from the daemon to a client after a request.
-// TODO: Remove ?
-typedef struct sy5_reply {
+typedef struct reply {
     // Operation code (reply identifier).
     uint16_t reptype;
     
@@ -77,7 +76,7 @@ typedef struct sy5_reply {
             uint16_t errcode;
         };
     };
-} sy5_reply;
+} reply;
 
 // TODO: Add documentation.
 const char **reply_item_names();
