@@ -339,8 +339,8 @@ int main(int argc, char *argv[]) {
             close(request_write_fd);
             printf_error("daemon is already running or pipes are being used by another process\n");
         }
-    // Creates the request pipe file if it doesn't exits.
     } else {
+        // Creates the request pipe file if it doesn't exits.
         assert_perror(mkfifo(request_pipe_path, 0666) != -1);
     }
     
