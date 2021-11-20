@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -5,15 +6,16 @@
 #include <getopt.h>
 #include <syslog.h>
 #include <limits.h>
-#include <dirent.h>
-#include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
-#include <time.h>
 #ifdef __linux__
 #include <unistd.h>
+#endif
+#ifdef SATURND
+#include <dirent.h>
+#include <sys/stat.h>
 #endif
 
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
