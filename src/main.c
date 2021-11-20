@@ -400,28 +400,12 @@ int main(int argc, char *argv[]) {
     
         reply reply;
         switch (request.opcode) {
-        case CLIENT_REQUEST_LIST_TASKS:
-            // TODO: CLIENT_REQUEST_LIST_TASKS
-            reply.reptype = SERVER_REPLY_OK;
-            break;
         case CLIENT_REQUEST_CREATE_TASK:
-            // TODO: CLIENT_REQUEST_CREATE_TASK
+            // TODO: Create task's and its data in a thread
             reply.reptype = SERVER_REPLY_OK;
             break;
         case CLIENT_REQUEST_REMOVE_TASK:
-            // TODO: CLIENT_REQUEST_REMOVE_TASK
-            reply.reptype = SERVER_REPLY_OK;
-            break;
-        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-            // TODO: CLIENT_REQUEST_GET_TIMES_AND_EXITCODES
-            reply.reptype = SERVER_REPLY_OK;
-            break;
-        case CLIENT_REQUEST_GET_STDOUT:
-            // TODO: CLIENT_REQUEST_GET_STDOUT
-            reply.reptype = SERVER_REPLY_OK;
-            break;
-        case CLIENT_REQUEST_GET_STDERR:
-            // TODO: CLIENT_REQUEST_GET_STDERR
+            // TODO: Stop the task's thread and remove its data.
             reply.reptype = SERVER_REPLY_OK;
             break;
         case CLIENT_REQUEST_TERMINATE:
