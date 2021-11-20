@@ -371,16 +371,54 @@ int main(int argc, char *argv[]) {
             close(request_read_fd);
             continue;
         }
+    
+        switch (request.opcode) {
+        case CLIENT_REQUEST_CREATE_TASK:
+        assert_perror(read_task(request_read_fd, &request.task, false) != -1);
+            break;
+        case CLIENT_REQUEST_REMOVE_TASK:
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
+        case CLIENT_REQUEST_GET_STDOUT:
+        case CLIENT_REQUEST_GET_STDERR:
+            assert_perror(read_uint64(request_read_fd, &request.taskid) != -1);
+            break;
+        default:
+            break;
+        }
         
+        close(request_read_fd);
+    
         reply reply;
         switch (request.opcode) {
+        case CLIENT_REQUEST_LIST_TASKS:
+            // TODO: CLIENT_REQUEST_LIST_TASKS
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_CREATE_TASK:
+            // TODO: CLIENT_REQUEST_CREATE_TASK
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_REMOVE_TASK:
+            // TODO: CLIENT_REQUEST_REMOVE_TASK
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
+            // TODO: CLIENT_REQUEST_GET_TIMES_AND_EXITCODES
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_GET_STDOUT:
+            // TODO: CLIENT_REQUEST_GET_STDOUT
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_GET_STDERR:
+            // TODO: CLIENT_REQUEST_GET_STDERR
+            reply.reptype = SERVER_REPLY_OK;
+            break;
         case CLIENT_REQUEST_TERMINATE:
         default:
             reply.reptype = SERVER_REPLY_OK;
             break;
         }
-        
-        close(request_read_fd);
     
         int reply_write_fd = open(reply_pipe_path, O_WRONLY);
         assert_perror(reply_write_fd != -1);
@@ -394,10 +432,7 @@ int main(int argc, char *argv[]) {
         write_uint16(reply_write_fd, &reply.reptype);
         
         if (reply.reptype == SERVER_REPLY_OK) {
-            switch (request.opcode) {
-            default:
-                break;
-            }
+            // TODO: WRITE REPLY DATA
         } else {
             write_uint16(reply_write_fd, &reply.errcode);
         }

@@ -38,11 +38,8 @@ typedef struct request {
     union {
         // CLIENT_REQUEST_CREATE_TASK
         struct {
-            // Precise when to perform a given task.
-            timing timing;
-            
-            // Command line arguments of a given task.
-            commandline commandline;
+            // A task to schedule.
+            task task;
         };
         
         // CLIENT_REQUEST_REMOVE_TASK
