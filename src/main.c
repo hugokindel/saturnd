@@ -408,7 +408,6 @@ int main(int argc, char *argv[]) {
             // TODO: Stop the task's thread and remove its data.
             reply.reptype = SERVER_REPLY_OK;
             break;
-        case CLIENT_REQUEST_TERMINATE:
         default:
             reply.reptype = SERVER_REPLY_OK;
             break;
