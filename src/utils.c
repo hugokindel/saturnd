@@ -317,6 +317,13 @@ int write_task(int fd, const task *task, bool write_taskid) {
     return 0;
 }
 
+int write_run(int fd, const run *run) {
+    assert(write_uint64(fd, &run->time) != -1);
+    assert(write_uint16(fd, &run->exitcode) != -1);
+    
+    return 0;
+}
+
 int read_uint8(int fd, uint8_t *n) {
     return (int)read(fd, n, sizeof(uint8_t));
 }
@@ -393,4 +400,22 @@ int read_task_array(int fd, task task[], bool read_taskid) {
     }
     
     return (int)nbtasks;
+}
+
+int read_run(int fd, run *run) {
+    assert(read_uint64(fd, &run->time) != -1);
+    assert(read_uint16(fd, &run->exitcode) != -1);
+    
+    return 0;
+}
+
+int read_run_array(int fd, run run[]) {
+    uint32_t nbruns;
+    assert(read_uint32(fd, &nbruns) != -1);
+    
+    for (int i = 0; i < nbruns; i++) {
+        assert(read_run(fd, &run[i]) != -1);
+    }
+    
+    return (int)nbruns;
 }

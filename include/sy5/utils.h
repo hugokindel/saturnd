@@ -61,6 +61,9 @@ int write_commandline(int fd, const commandline *commandline);
 int write_task(int fd, const task *task, bool write_taskid);
 
 // TODO: Add documentation.
+int write_run(int fd, const run *run);
+
+// TODO: Add documentation.
 int read_uint8(int fd, uint8_t *n);
 
 // TODO: Add documentation.
@@ -81,8 +84,16 @@ int read_timing(int fd, timing *timing);
 // TODO: Add documentation.
 int read_commandline(int fd, commandline *commandline);
 
+// TODO: Add documentation.
 int read_task(int fd, task *task, bool read_taskid);
 
+// TODO: Add documentation.
 int read_task_array(int fd, task task[], bool read_taskid);
+
+// TODO: Add documentation.
+int read_run(int fd, run *run);
+
+// TODO: Add documentation.
+int read_run_array(int fd, run run[]);
 
 #endif // UTILS_H.

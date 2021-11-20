@@ -257,18 +257,15 @@ int main(int argc, char *argv[]) {
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
-            uint32_t nbruns;
-            assert_perror(read_uint32(reply_read_fd, &nbruns) != -1);
+            run run_arr[MAX_RUNS_HISTORY];
+            uint32_t nbruns = read_run_array(reply_read_fd, run_arr);
+            assert_perror(nbruns != -1);
             for (int i = 0; i < nbruns; i++) {
-                uint64_t time;
-                assert_perror(read_uint64(reply_read_fd, &time) != -1);
-                time_t timestamp = (time_t)time;
+                time_t timestamp = (time_t)run_arr[i].time;
                 struct tm *time_info = localtime(&timestamp);
                 char time_str[26];
                 assert_perror(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1);
-                uint16_t exitcode;
-                assert_perror(read_uint16(reply_read_fd, &exitcode) != -1);
-                printf("%s %d\n", time_str, exitcode);
+                printf("%s %d\n", time_str, run_arr[i].exitcode);
             }
             break;
         }

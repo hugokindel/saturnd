@@ -17,6 +17,9 @@
 // The maximum number of tasks that can be handled by a daemon.
 #define MAX_TASKS 64
 
+// The maximum size of a run history array.
+#define MAX_RUNS_HISTORY 64
+
 // Assert that returns -1 in case of error.
 #define assert(condition) if (!(condition)) { return -1; } (void)0
 
@@ -66,7 +69,6 @@ typedef struct task {
 } task;
 
 // Describes a scheduled task run.
-// TODO: Remove ?
 typedef struct run {
     // Time of the run in second since EPOCH.
     uint64_t time;
