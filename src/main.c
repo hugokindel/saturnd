@@ -367,7 +367,7 @@ int main(int argc, char *argv[]) {
     syslog(LOG_NOTICE, "daemon started\n");
     
     // Waiting for requests to handle...
-    while (1) {
+    while (true) {
         int request_read_fd = open(request_pipe_path, O_RDONLY);
         assert_perror(request_read_fd != -1);
     
