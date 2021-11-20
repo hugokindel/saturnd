@@ -1,7 +1,6 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
 
