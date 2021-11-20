@@ -55,7 +55,7 @@ int string_from_cstring(string *dest, const char *cstring) {
     
     assert(dest->length <= MAX_STRING_LENGTH);
     
-    for (int i = 0; i < dest->length; i++) {
+    for (uint32_t i = 0; i < dest->length; i++) {
         dest->data[i] = cstring[i];
     }
     
@@ -67,7 +67,7 @@ int string_from_cstring(string *dest, const char *cstring) {
 int cstring_from_string(char *dest, const string *string) {
     assert(string->length <= MAX_STRING_LENGTH);
     
-    for (int i = 0; i < string->length; i++) {
+    for (uint32_t i = 0; i < string->length; i++) {
         dest[i] = (uint8_t)string->data[i]; // NOLINT
     }
     
@@ -244,7 +244,7 @@ int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
     
     dest->argc = argc;
     
-    for (int i = 0; i < dest->argc; i++) {
+    for (uint32_t i = 0; i < dest->argc; i++) {
         assert(string_from_cstring(&dest->argv[i], argv[i]) != -1);
     }
     
@@ -281,7 +281,7 @@ int write_uint64(int fd, const uint64_t *n) {
 int write_string(int fd, const string *string) {
     assert(write_uint32(fd, &string->length) != -1);
     
-    for (int i = 0; i < string->length; i++) {
+    for (uint32_t i = 0; i < string->length; i++) {
         assert(write_uint8(fd, &string->data[i]) != -1);
     }
     
@@ -299,7 +299,7 @@ int write_timing(int fd, const timing *timing) {
 int write_commandline(int fd, const commandline *commandline) {
     assert(write_uint32(fd, &commandline->argc) != -1);
     
-    for (int i = 0; i < commandline->argc; i++) {
+    for (uint32_t i = 0; i < commandline->argc; i++) {
         assert(write_string(fd, &commandline->argv[i]) != -1);
     }
     
@@ -317,9 +317,29 @@ int write_task(int fd, const task *task, bool write_taskid) {
     return 0;
 }
 
+int write_task_array(int fd, const uint32_t *nbtasks, const task tasks[], bool read_taskid) {
+    assert(write_uint32(fd, nbtasks) != -1);
+    
+    for (uint32_t i = 0; i < *nbtasks; i++) {
+        assert(write_task(fd, &tasks[i], read_taskid) != -1);
+    }
+    
+    return 0;
+}
+
 int write_run(int fd, const run *run) {
     assert(write_uint64(fd, &run->time) != -1);
     assert(write_uint16(fd, &run->exitcode) != -1);
+    
+    return 0;
+}
+
+int write_run_array(int fd, const uint32_t *nbruns, const run runs[]) {
+    assert(write_uint32(fd, nbruns) != -1);
+    
+    for (uint32_t i = 0; i < *nbruns; i++) {
+        assert(write_run(fd, &runs[i]) != -1);
+    }
     
     return 0;
 }
@@ -355,7 +375,7 @@ int read_uint64(int fd, uint64_t *n) {
 int read_string(int fd, string *string) {
     assert(read_uint32(fd, &string->length) != -1);
     
-    for (int i = 0; i < string->length; i++) {
+    for (uint32_t i = 0; i < string->length; i++) {
         assert(read_uint8(fd, &string->data[i]) != -1);
     }
     
@@ -373,7 +393,7 @@ int read_timing(int fd, timing *timing) {
 int read_commandline(int fd, commandline *commandline) {
     assert(read_uint32(fd, &commandline->argc) != -1);
     
-    for (int i = 0; i < commandline->argc; i++) {
+    for (uint32_t i = 0; i < commandline->argc; i++) {
         assert(read_string(fd, &commandline->argv[i]) != -1);
     }
     
@@ -395,7 +415,7 @@ int read_task_array(int fd, task task[], bool read_taskid) {
     uint32_t nbtasks;
     assert(read_uint32(fd, &nbtasks) != -1);
     
-    for (int i = 0; i < nbtasks; i++) {
+    for (uint32_t i = 0; i < nbtasks; i++) {
         assert(read_task(fd, &task[i], read_taskid) != -1);
     }
     
@@ -413,7 +433,7 @@ int read_run_array(int fd, run run[]) {
     uint32_t nbruns;
     assert(read_uint32(fd, &nbruns) != -1);
     
-    for (int i = 0; i < nbruns; i++) {
+    for (uint32_t i = 0; i < nbruns; i++) {
         assert(read_run(fd, &run[i]) != -1);
     }
     

@@ -57,6 +57,16 @@ const char usage_info[] =
     "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
 #endif
 
+#ifdef SATURND
+uint64_t g_last_taskid;
+uint32_t g_nbtasks;
+task g_tasks[MAX_TASKS];
+uint32_t g_nbruns[MAX_TASKS];
+run g_runs[MAX_TASKS][MAX_RUNS_HISTORY];
+string g_stdouts[MAX_TASKS];
+string g_stderrs[MAX_TASKS];
+#endif
+
 int main(int argc, char *argv[]) {
     errno = 0;
     
@@ -229,20 +239,20 @@ int main(int argc, char *argv[]) {
         
         switch (opt_opcode) {
         case CLIENT_REQUEST_LIST_TASKS: {
-            task task_arr[MAX_TASKS];
-            uint32_t nbtasks = read_task_array(reply_read_fd, task_arr, true);
+            task tasks[MAX_TASKS];
+            uint32_t nbtasks = read_task_array(reply_read_fd, tasks, true);
             assert_perror(nbtasks != -1);
-            for (int i = 0; i < nbtasks; i++) {
+            for (uint32_t i = 0; i < nbtasks; i++) {
                 char timing_str[MAX_TIMING_STRING_LENGTH];
-                assert_perror(timing_string_from_timing(timing_str, &task_arr[i].timing) != -1);
+                assert_perror(timing_string_from_timing(timing_str, &tasks[i].timing) != -1);
 #ifdef __APPLE__
-                printf("%llu: %s", task_arr[i].taskid, timing_str);
+                printf("%llu: %s", tasks[i].taskid, timing_str);
 #else
-                printf("%lu: %s", task_arr[i].taskid, timing_str);
+                printf("%lu: %s", tasks[i].taskid, timing_str);
 #endif
-                for (int j = 0; j < task_arr[i].commandline.argc; j++) {
+                for (uint32_t j = 0; j < tasks[i].commandline.argc; j++) {
                     char argv_str[MAX_STRING_LENGTH];
-                    assert_perror(cstring_from_string(argv_str, &task_arr[i].commandline.argv[j]) != -1);
+                    assert_perror(cstring_from_string(argv_str, &tasks[i].commandline.argv[j]) != -1);
                     printf(" %s", argv_str);
                 }
                 printf("\n");
@@ -260,15 +270,15 @@ int main(int argc, char *argv[]) {
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
-            run run_arr[MAX_RUNS_HISTORY];
-            uint32_t nbruns = read_run_array(reply_read_fd, run_arr);
+            run runs[MAX_RUNS_HISTORY];
+            uint32_t nbruns = read_run_array(reply_read_fd, runs);
             assert_perror(nbruns != -1);
-            for (int i = 0; i < nbruns; i++) {
-                time_t timestamp = (time_t)run_arr[i].time;
+            for (uint32_t i = 0; i < nbruns; i++) {
+                time_t timestamp = (time_t)runs[i].time;
                 struct tm *time_info = localtime(&timestamp);
                 char time_str[26];
                 assert_perror(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1);
-                printf("%s %d\n", time_str, run_arr[i].exitcode);
+                printf("%s %d\n", time_str, runs[i].exitcode);
             }
             break;
         }
@@ -432,7 +442,25 @@ int main(int argc, char *argv[]) {
         write_uint16(reply_write_fd, &reply.reptype);
         
         if (reply.reptype == SERVER_REPLY_OK) {
-            // TODO: WRITE REPLY DATA
+            switch (request.opcode) {
+            case CLIENT_REQUEST_LIST_TASKS:
+                assert_perror(write_task_array(reply_write_fd, &g_nbtasks, g_tasks, true) != -1);
+                break;
+            case CLIENT_REQUEST_CREATE_TASK:
+                assert_perror(write_uint64(reply_write_fd, &g_last_taskid) != -1);
+                break;
+            case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
+                assert_perror(write_run_array(reply_write_fd, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1);
+                break;
+            case CLIENT_REQUEST_GET_STDOUT:
+                assert_perror(write_string(reply_write_fd, &g_stdouts[request.taskid]) != -1);
+                break;
+            case CLIENT_REQUEST_GET_STDERR:
+                assert_perror(write_string(reply_write_fd, &g_stderrs[request.taskid]) != -1);
+                break;
+            default:
+                break;
+            }
         } else {
             write_uint16(reply_write_fd, &reply.errcode);
         }

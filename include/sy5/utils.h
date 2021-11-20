@@ -61,7 +61,13 @@ int write_commandline(int fd, const commandline *commandline);
 int write_task(int fd, const task *task, bool write_taskid);
 
 // TODO: Add documentation.
+int write_task_array(int fd, const uint32_t *nbtasks, const task tasks[], bool read_taskid);
+
+// TODO: Add documentation.
 int write_run(int fd, const run *run);
+
+// TODO: Add documentation.
+int write_run_array(int fd, const uint32_t *nbruns, const run runs[]);
 
 // TODO: Add documentation.
 int read_uint8(int fd, uint8_t *n);
