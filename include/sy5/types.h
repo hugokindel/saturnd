@@ -6,13 +6,16 @@
 #include <stdbool.h>
 
 // The maximum length of a string.
-#define MAX_STRING_LENGTH 4096
+#define MAX_STRING_LENGTH 1024
 
 // The maximum number of arguments within a command line.
-#define MAX_COMMANDLINE_ARGUMENTS 128
+#define MAX_COMMANDLINE_ARGUMENTS 32
 
 // The maximum length of a timing when defined as a string.
 #define MAX_TIMING_STRING_LENGTH 1024
+
+// The maximum number of tasks that can be handled by a daemon.
+#define MAX_TASKS 64
 
 // Assert that returns -1 in case of error.
 #define assert(condition) if (!(condition)) { return -1; } (void)0

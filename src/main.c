@@ -226,25 +226,20 @@ int main(int argc, char *argv[]) {
         
         switch (opt_opcode) {
         case CLIENT_REQUEST_LIST_TASKS: {
-            uint32_t nbtasks;
-            assert_perror(read_uint32(reply_read_fd, &nbtasks) != -1);
+            task task_arr[MAX_TASKS];
+            uint32_t nbtasks = read_task_array(reply_read_fd, task_arr, true);
+            assert_perror(nbtasks != -1);
             for (int i = 0; i < nbtasks; i++) {
-                uint64_t taskid;
-                assert_perror(read_uint64(reply_read_fd, &taskid) != -1);
-                timing timing;
-                assert_perror(read_timing(reply_read_fd, &timing) != -1);
                 char timing_str[MAX_TIMING_STRING_LENGTH];
-                assert_perror(timing_string_from_timing(timing_str, &timing) != -1);
-                commandline commandline;
-                assert_perror(read_commandline(reply_read_fd, &commandline) != -1);
+                assert_perror(timing_string_from_timing(timing_str, &task_arr[i].timing) != -1);
 #ifdef __APPLE__
-                printf("%llu: %s", taskid, timing_str);
+                printf("%llu: %s", task_arr[i].taskid, timing_str);
 #else
-                printf("%lu: %s", taskid, timing_str);
+                printf("%lu: %s", task_arr[i].taskid, timing_str);
 #endif
-                for (int j = 0; j < commandline.argc; j++) {
+                for (int j = 0; j < task_arr[i].commandline.argc; j++) {
                     char argv_str[MAX_STRING_LENGTH];
-                    assert_perror(cstring_from_string(argv_str, &commandline.argv[j]) != -1);
+                    assert_perror(cstring_from_string(argv_str, &task_arr[i].commandline.argv[j]) != -1);
                     printf(" %s", argv_str);
                 }
                 printf("\n");

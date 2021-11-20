@@ -58,7 +58,7 @@ int write_timing(int fd, const timing *timing);
 int write_commandline(int fd, const commandline *commandline);
 
 // TODO: Add documentation.
-int write_task(int fd, const task *task, bool send_taskid);
+int write_task(int fd, const task *task, bool write_taskid);
 
 // TODO: Add documentation.
 int read_uint8(int fd, uint8_t *n);
@@ -80,5 +80,9 @@ int read_timing(int fd, timing *timing);
 
 // TODO: Add documentation.
 int read_commandline(int fd, commandline *commandline);
+
+int read_task(int fd, task *task, bool read_taskid);
+
+int read_task_array(int fd, task task[], bool read_taskid);
 
 #endif // UTILS_H.

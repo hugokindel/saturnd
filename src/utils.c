@@ -306,8 +306,8 @@ int write_commandline(int fd, const commandline *commandline) {
     return 0;
 }
 
-int write_task(int fd, const task *task, bool send_taskid) {
-    if (send_taskid) {
+int write_task(int fd, const task *task, bool write_taskid) {
+    if (write_taskid) {
         assert(write_uint64(fd, &task->taskid) != -1);
     }
     
@@ -371,4 +371,26 @@ int read_commandline(int fd, commandline *commandline) {
     }
     
     return 0;
+}
+
+int read_task(int fd, task *task, bool read_taskid) {
+    if (read_taskid) {
+        assert(read_uint64(fd, &task->taskid) != -1);
+    }
+    
+    assert(read_timing(fd, &task->timing) != -1);
+    assert(read_commandline(fd, &task->commandline) != -1);
+    
+    return 0;
+}
+
+int read_task_array(int fd, task task[], bool read_taskid) {
+    uint32_t nbtasks;
+    assert(read_uint32(fd, &nbtasks) != -1);
+    
+    for (int i = 0; i < nbtasks; i++) {
+        assert(read_task(fd, &task[i], read_taskid) != -1);
+    }
+    
+    return (int)nbtasks;
 }
