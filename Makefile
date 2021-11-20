@@ -3,7 +3,8 @@
 CC ?= gcc
 CCFLAGS ?= -Wall -std=gnu99 -Iinclude
 
-all: cassini saturnd
+# TODO: Add `saturnd` to `all` once it is stable.
+all: cassini
 
 cassini:
 	$(CC) $(CCFLAGS) $(CFLAGS) -DCASSINI -o cassini src/main.c src/reply.c src/request.c src/utils.c
