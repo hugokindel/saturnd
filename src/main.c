@@ -401,11 +401,22 @@ int main(int argc, char *argv[]) {
         reply reply;
         switch (request.opcode) {
         case CLIENT_REQUEST_CREATE_TASK:
-            // TODO: Create task's and its data in a thread
+            // TODO: Create the task and its data in a pthread.
             reply.reptype = SERVER_REPLY_OK;
             break;
         case CLIENT_REQUEST_REMOVE_TASK:
-            // TODO: Stop the task's thread and remove its data.
+            // TODO: Stop the task's pthread and remove its data if `taskid` does exists.
+            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
+            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
+            reply.reptype = SERVER_REPLY_OK;
+            break;
+        case CLIENT_REQUEST_GET_STDOUT:
+        case CLIENT_REQUEST_GET_STDERR:
+            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
+            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NEVER_RUN' if `taskid` exists but has not yet been run.
             reply.reptype = SERVER_REPLY_OK;
             break;
         default:

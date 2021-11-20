@@ -30,52 +30,8 @@ typedef struct reply {
     // Operation code (reply identifier).
     uint16_t reptype;
     
-    // Data format per reply identifier.
-    union {
-        // -> WHEN REPTYPE IS SERVER_REPLY_OK
-        
-        // CLIENT_REQUEST_LIST_TASKS
-        struct {
-            // Number of tasks.
-            uint32_t nbtasks;
-            
-            // Tasks data.
-            task tasks[];
-        };
-        
-        // CLIENT_REQUEST_CREATE_TASK
-        struct {
-            // ID of the created task.
-            uint64_t taskid;
-        };
-    
-        // CLIENT_REQUEST_GET_TIMES_AND_EXITCODES
-        struct {
-            // Number of tasks.
-            uint32_t nbruns;
-        
-            // Tasks data.
-            run run[];
-        };
-    
-        // CLIENT_REQUEST_GET_STDOUT
-        // CLIENT_REQUEST_GET_STDERR
-        struct {
-            // Output string.
-            string output;
-        };
-    
-        // -> WHEN REPTYPE IS SERVER_REPLY_ERROR
-        
-        // CLIENT_REQUEST_REMOVE_TASK
-        // CLIENT_REQUEST_GET_TIMES_AND_EXITCODES
-        // CLIENT_REQUEST_GET_STDOUT
-        // CLIENT_REQUEST_GET_STDERR
-        struct {
-            // Error code.
-            uint16_t errcode;
-        };
-    };
+    // Error code (if any).
+    uint16_t errcode;
 } reply;
 
 // TODO: Add documentation.
