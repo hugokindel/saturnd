@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 
 #ifdef __APPLE__
-#include <machine/endian.h>
 #include <libkern/OSByteOrder.h>
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
@@ -51,26 +50,30 @@ int mkdir_recursively(const char *path, uint16_t mode) {
     return err;
 }
 
-void string_from_cstring(string *dest, const char *cstring) {
-    // TODO: Add assert for length (which changes return type to `int`).
-    
+int string_from_cstring(string *dest, const char *cstring) {
     dest->length = strlen(cstring);
+    
+    assert(dest->length <= MAX_STRING_LENGTH);
     
     for (int i = 0; i < dest->length; i++) {
         dest->data[i] = cstring[i];
     }
     
     dest->data[dest->length] = '\0';
+    
+    return 0;
 }
 
-void cstring_from_string(char *dest, const string *string) {
-    // TODO: Add assert for length (which changes return type to `int`).
+int cstring_from_string(char *dest, const string *string) {
+    assert(string->length <= MAX_STRING_LENGTH);
     
     for (int i = 0; i < string->length; i++) {
         dest[i] = (uint8_t)string->data[i]; // NOLINT
     }
     
     dest[string->length] = '\0';
+    
+    return 0;
 }
 
 int timing_from_strings(timing *dest, const char *minutes_str, const char *hours_str, const char *daysofweek_str) {
@@ -236,12 +239,16 @@ int timing_string_from_range(char *dest, unsigned int start, unsigned int stop) 
     return sprintf_result;
 }
 
-void commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
+int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
+    assert(argc <= MAX_COMMANDLINE_ARGUMENTS);
+    
     dest->argc = argc;
     
     for (int i = 0; i < dest->argc; i++) {
-        string_from_cstring(&dest->argv[i], argv[i]);
+        assert(string_from_cstring(&dest->argv[i], argv[i]) != -1);
     }
+    
+    return 0;
 }
 
 int write_uint8(int fd, const uint8_t *n) {
@@ -295,6 +302,17 @@ int write_commandline(int fd, const commandline *commandline) {
     for (int i = 0; i < commandline->argc; i++) {
         assert(write_string(fd, &commandline->argv[i]) != -1);
     }
+    
+    return 0;
+}
+
+int write_task(int fd, const task *task, bool send_taskid) {
+    if (send_taskid) {
+        assert(write_uint64(fd, &task->taskid) != -1);
+    }
+    
+    assert(write_timing(fd, &task->timing) != -1);
+    assert(write_commandline(fd, &task->commandline) != -1);
     
     return 0;
 }

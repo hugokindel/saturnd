@@ -7,10 +7,10 @@
 int mkdir_recursively(const char *path, uint16_t mode);
 
 // TODO: Add documentation.
-void string_from_cstring(string *dest, const char *cstring);
+int string_from_cstring(string *dest, const char *cstring);
 
 // TODO: Add documentation.
-void cstring_from_string(char *dest, const string *string);
+int cstring_from_string(char *dest, const string *string);
 
 // TODO: Add documentation.
 int timing_from_strings(timing *dest, const char *minutes_str, const char *hours_str, const char *daysofweek_str);
@@ -34,7 +34,7 @@ int timing_string_from_field(char *dest, unsigned int min, unsigned int max, uin
 int timing_string_from_range(char *dest, unsigned int start, unsigned int stop);
 
 // TODO: Add documentation.
-void commandline_from_args(commandline *dest, unsigned int argc, char *argv[]);
+int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]);
 
 // TODO: Add documentation.
 int write_uint8(int fd, const uint8_t *n);
@@ -56,6 +56,9 @@ int write_timing(int fd, const timing *timing);
 
 // TODO: Add documentation.
 int write_commandline(int fd, const commandline *commandline);
+
+// TODO: Add documentation.
+int write_task(int fd, const task *task, bool send_taskid);
 
 // TODO: Add documentation.
 int read_uint8(int fd, uint8_t *n);

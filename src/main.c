@@ -195,12 +195,10 @@ int main(int argc, char *argv[]) {
     
     switch (opt_opcode) {
     case CLIENT_REQUEST_CREATE_TASK: {
-        timing timing;
-        assert_perror(timing_from_strings(&timing, opt_minutes, opt_hours, opt_daysofweek) != -1);
-        assert_perror(write_timing(request_write_fd, &timing) != -1);
-        commandline commandline;
-        commandline_from_args(&commandline, argc - optind, argv + optind);
-        assert_perror(write_commandline(request_write_fd, &commandline) != -1);
+        task task;
+        assert_perror(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1);
+        assert_perror(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1);
+        assert_perror(write_task(request_write_fd, &task, false) != -1);
         break;
     }
     case CLIENT_REQUEST_REMOVE_TASK:
@@ -246,7 +244,7 @@ int main(int argc, char *argv[]) {
 #endif
                 for (int j = 0; j < commandline.argc; j++) {
                     char argv_str[MAX_STRING_LENGTH];
-                    cstring_from_string(argv_str, &commandline.argv[j]);
+                    assert_perror(cstring_from_string(argv_str, &commandline.argv[j]) != -1);
                     printf(" %s", argv_str);
                 }
                 printf("\n");
@@ -284,7 +282,7 @@ int main(int argc, char *argv[]) {
             string output;
             assert_perror(read_string(reply_read_fd, &output) != -1);
             char output_str[MAX_STRING_LENGTH];
-            cstring_from_string(output_str, &output);
+            assert_perror(cstring_from_string(output_str, &output) != -1);
             printf("%s\n", output_str);
             break;
         }
@@ -409,7 +407,7 @@ int main(int argc, char *argv[]) {
             syslog(LOG_NOTICE, "with %d arguments", request.commandline.argc);
             for (int i = 0; i < request.commandline.argc; i++) {
                 char argv[MAX_STRING_LENGTH];
-                cstring_from_string(argv, request.commandline.argv[i]);
+                assert_perror(cstring_from_string(argv, request.commandline.argv[i]) != -1);
                 syslog(LOG_NOTICE, "- %s", argv);
             }
             break;
