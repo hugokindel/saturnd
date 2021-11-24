@@ -34,10 +34,10 @@ typedef struct reply {
     uint16_t errcode;
 } reply;
 
-// TODO: Add documentation.
+// Returns an array of names for each `reply_item`.
 const char **reply_item_names();
 
-// TODO: Add documentation.
+// Returns an array of names for each `reply_error_item`.
 const char **reply_error_item_names();
 
 #endif // SERVER_REPLY_H.

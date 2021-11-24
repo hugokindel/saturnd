@@ -53,7 +53,7 @@ typedef struct request {
     };
 } request;
 
-// TODO: Add documentation.
+// Returns an array of names for each `request_item`.
 const char **request_item_names();
 
 #endif // CLIENT_REQUEST_H.

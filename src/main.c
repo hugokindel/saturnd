@@ -182,10 +182,10 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef CASSINI
-    // Writes a request.
     int request_write_fd;
     int connection_attempts = 0;
     do {
+        // Open the request pipe in writing.
         request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
 
         if (request_write_fd == -1) {
@@ -204,6 +204,7 @@ int main(int argc, char *argv[]) {
     
     syslog(LOG_NOTICE, "sending to daemon `%s`\n", request_item_names()[opt_opcode]);
     
+    // Writes a request.
     assert_perror(write_uint16(request_write_fd, &opt_opcode) != -1);
     
     switch (opt_opcode) {
@@ -227,10 +228,11 @@ int main(int argc, char *argv[]) {
     
     close(request_write_fd);
     
-    // Receive
+    // Waits for a reply...
     int reply_read_fd = open(reply_pipe_path, O_RDONLY);
     assert_perror(reply_read_fd != -1);
     
+    // Reads a reply.
     uint16_t reptype;
     assert_perror(read_uint16(reply_read_fd, &reptype) != -1);
     
@@ -366,11 +368,12 @@ int main(int argc, char *argv[]) {
     
     syslog(LOG_NOTICE, "daemon started\n");
     
-    // Waiting for requests to handle...
     while (true) {
+        // Waits for requests to handle...
         int request_read_fd = open(request_pipe_path, O_RDONLY);
         assert_perror(request_read_fd != -1);
     
+        // Reads a request.
         request request;
         assert_perror(read_uint16(request_read_fd, &request.opcode) != -1);
     
@@ -398,6 +401,7 @@ int main(int argc, char *argv[]) {
         
         close(request_read_fd);
     
+        // Writes a reply.
         reply reply;
         switch (request.opcode) {
         case CLIENT_REQUEST_CREATE_TASK:
