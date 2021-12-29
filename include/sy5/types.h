@@ -7,14 +7,11 @@
 // Includes integer types (`uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t`, `int64_t`).
 #include <stdint.h>
 
-// The maximum length of a string.
-#define MAX_STRING_LENGTH 1024
+// Includes `PIPE_BUF`.
+#include <limits.h>
 
 // The maximum number of arguments within a command line.
 #define MAX_COMMANDLINE_ARGUMENTS 32
-
-// The maximum length of a timing when defined as a string.
-#define MAX_TIMING_STRING_LENGTH 1024
 
 // The maximum number of tasks that can be handled by a daemon.
 #define MAX_TASKS 64
@@ -38,13 +35,22 @@
 #define EXECUTABLE_NAME "saturnd"
 #endif
 
+// Describes a buffer (identical to a string).
+typedef struct buffer {
+    // Length of the buffer.
+    uint32_t length;
+    
+    // Data of the buffer.
+    uint8_t data[PIPE_BUF];
+} buffer;
+
 // Describes a string.
 typedef struct string {
     // Length of the string.
     uint32_t length;
     
     // Data of the string.
-    uint8_t data[MAX_STRING_LENGTH];
+    uint8_t data[PIPE_BUF];
 } string;
 
 // Describes multiple time references.

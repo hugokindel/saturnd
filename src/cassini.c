@@ -118,10 +118,10 @@ int main(int argc, char *argv[]) {
         
         if (request_write_fd == -1) {
             if (connection_attempts == 10) {
-                fatal_error("cannot open daemon's request pipe within 100ms, timing out.\n");
+                fatal_error("cannot open request pipe within 100ms, timing out.\n");
             }
             
-            log("cannot open daemon's request pipe, waiting 10ms...\n");
+            log("cannot open request pipe, waiting 10ms...\n");
             connection_attempts++;
             usleep(10000);
         } else {
@@ -132,32 +132,34 @@ int main(int argc, char *argv[]) {
     log2("sending to daemon `%s`.\n", request_item_names()[opt_opcode]);
     
     // Writes a request.
-    fatal_assert(write_uint16(request_write_fd, &opt_opcode) != -1, "cannot write `opcode` to request!\n");
+    buffer buf = create_buffer();
+    fatal_assert(write_uint16(&buf, &opt_opcode) != -1, "cannot write `opcode` to request!\n");
     
     switch (opt_opcode) {
     case CLIENT_REQUEST_CREATE_TASK: {
         task task;
         fatal_assert(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1, "cannot parse `timing`!\n");
         fatal_assert(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1, "cannot parse `commandline`!\n");
-        fatal_assert(write_task(request_write_fd, &task, false) != -1, "cannot write `task` to request!\n");
+        fatal_assert(write_task(&buf, &task, false) != -1, "cannot write `task` to request!\n");
         break;
     }
     case CLIENT_REQUEST_REMOVE_TASK:
     case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
     case CLIENT_REQUEST_GET_STDOUT:
     case CLIENT_REQUEST_GET_STDERR: {
-        fatal_assert(write_uint64(request_write_fd, &opt_taskid) != -1, "cannot write `taskid` to request!\n");
+        fatal_assert(write_uint64(&buf, &opt_taskid) != -1, "cannot write `taskid` to request!\n");
         break;
     }
     default:
         break;
     }
     
-    fatal_assert(close(request_write_fd) != -1, "cannot close daemon's request pipe!\n");
+    fatal_assert(write_buffer(request_write_fd, &buf) != -1, "cannot write request!\n");
+    fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
     
     // Waits for a reply...
     int reply_read_fd = open(reply_pipe_path, O_RDONLY);
-    fatal_assert(reply_read_fd != -1, "cannot open daemon's response pipe!\n");
+    fatal_assert(reply_read_fd != -1, "cannot open response pipe!\n");
     
     // Reads a reply.
     uint16_t reptype;
@@ -172,7 +174,7 @@ int main(int argc, char *argv[]) {
             uint32_t nbtasks = read_task_array(reply_read_fd, tasks, true);
             fatal_assert(nbtasks != -1, "cannot read `nbtasks` from response!\n");
             for (uint32_t i = 0; i < nbtasks; i++) {
-                char timing_str[MAX_TIMING_STRING_LENGTH];
+                char timing_str[PIPE_BUF];
                 fatal_assert(timing_string_from_timing(timing_str, &tasks[i].timing) != -1, "cannot read `timing` from response!\n");
 #ifdef __APPLE__
                 printf("%llu: %s", tasks[i].taskid, timing_str);
@@ -180,7 +182,7 @@ int main(int argc, char *argv[]) {
                 printf("%lu: %s", tasks[i].taskid, timing_str);
 #endif
                 for (uint32_t j = 0; j < tasks[i].commandline.argc; j++) {
-                    char argv_str[MAX_STRING_LENGTH];
+                    char argv_str[PIPE_BUF];
                     fatal_assert(cstring_from_string(argv_str, &tasks[i].commandline.argv[j]) != -1, "cannot read `argv` from response!\n");
                     printf(" %s", argv_str);
                 }
@@ -215,7 +217,7 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_GET_STDERR: {
             string output;
             fatal_assert(read_string(reply_read_fd, &output) != -1, "cannot read `output` from response!\n");
-            char output_str[MAX_STRING_LENGTH];
+            char output_str[PIPE_BUF];
             fatal_assert(cstring_from_string(output_str, &output) != -1, "cannot parse `output` from response!\n");
             printf("%s\n", output_str);
             break;
@@ -230,7 +232,7 @@ int main(int argc, char *argv[]) {
         goto error;
     }
     
-    fatal_assert(close(reply_read_fd) != -1, "cannot close daemon's reply pipe!\n");
+    fatal_assert(close(reply_read_fd) != -1, "cannot close reply pipe!\n");
     
     goto cleanup;
     

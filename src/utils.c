@@ -20,6 +20,15 @@
 #include <endian.h>
 #endif
 
+buffer create_buffer() {
+    buffer buffer = {
+        .length = 0,
+        .data = {0 }
+    };
+    
+    return buffer;
+}
+
 int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path) {
     if (*pipes_directory_path == NULL) {
         *pipes_directory_path = calloc(1, PATH_MAX);
@@ -97,7 +106,7 @@ int mkdir_recursively(const char *path, uint16_t mode) {
 int string_from_cstring(string *dest, const char *cstring) {
     dest->length = strlen(cstring);
     
-    assert(dest->length <= MAX_STRING_LENGTH);
+    assert(dest->length <= PIPE_BUF);
     
     for (uint32_t i = 0; i < dest->length; i++) {
         dest->data[i] = cstring[i];
@@ -109,7 +118,7 @@ int string_from_cstring(string *dest, const char *cstring) {
 }
 
 int cstring_from_string(char *dest, const string *string) {
-    assert(string->length <= MAX_STRING_LENGTH);
+    assert(string->length <= PIPE_BUF);
     
     for (uint32_t i = 0; i < string->length; i++) {
         dest[i] = (uint8_t)string->data[i]; // NOLINT
@@ -295,94 +304,108 @@ int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
     return 0;
 }
 
-int write_uint8(int fd, const uint8_t *n) {
-    assert(write(fd, n, sizeof(uint8_t)) != -1);
+int write_buffer(int fd, const buffer *buf) {
+    assert(write(fd, buf->data, buf->length) != -1);
     
     return 0;
 }
 
-int write_uint16(int fd, const uint16_t *n) {
+int write_uint8(buffer *buf, const uint8_t *n) {
+    assert(buf->length + sizeof(uint8_t) <= PIPE_BUF);
+    assert(memcpy(buf->data + buf->length, n, sizeof(uint8_t)) != NULL);
+    buf->length += sizeof(uint8_t);
+    
+    return 0;
+}
+
+int write_uint16(buffer *buf, const uint16_t *n) {
+    assert(buf->length + sizeof(uint16_t) <= PIPE_BUF);
     uint16_t be_n = htobe16(*n);
-    assert(write(fd, &be_n, sizeof(uint16_t)) != -1);
+    assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint16_t)) != NULL);
+    buf->length += sizeof(uint16_t);
     
     return 0;
 }
 
-int write_uint32(int fd, const uint32_t *n) {
+int write_uint32(buffer *buf, const uint32_t *n) {
+    assert(buf->length + sizeof(uint32_t) <= PIPE_BUF);
     uint32_t be_n = htobe32(*n);
-    assert(write(fd, &be_n, sizeof(uint32_t)) != -1);
+    assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint32_t)) != NULL);
+    buf->length += sizeof(uint32_t);
     
     return 0;
 }
 
-int write_uint64(int fd, const uint64_t *n) {
+int write_uint64(buffer *buf, const uint64_t *n) {
+    assert(buf->length + sizeof(uint64_t) <= PIPE_BUF);
     uint64_t be_n = htobe64(*n);
-    assert(write(fd, &be_n, sizeof(uint64_t)) != -1);
+    assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint64_t)) != NULL);
+    buf->length += sizeof(uint64_t);
     
     return 0;
 }
 
-int write_string(int fd, const string *string) {
-    assert(write_uint32(fd, &string->length) != -1);
+int write_string(buffer *buf, const string *string) {
+    assert(write_uint32(buf, &string->length) != -1);
     
     for (uint32_t i = 0; i < string->length; i++) {
-        assert(write_uint8(fd, &string->data[i]) != -1);
+        assert(write_uint8(buf, &string->data[i]) != -1);
     }
     
     return 0;
 }
 
-int write_timing(int fd, const timing *timing) {
-    assert(write_uint64(fd, &timing->minutes) != -1);
-    assert(write_uint32(fd, &timing->hours) != -1);
-    assert(write_uint8(fd, &timing->daysofweek) != -1);
+int write_timing(buffer *buf, const timing *timing) {
+    assert(write_uint64(buf, &timing->minutes) != -1);
+    assert(write_uint32(buf, &timing->hours) != -1);
+    assert(write_uint8(buf, &timing->daysofweek) != -1);
     
     return 0;
 }
 
-int write_commandline(int fd, const commandline *commandline) {
-    assert(write_uint32(fd, &commandline->argc) != -1);
+int write_commandline(buffer *buf, const commandline *commandline) {
+    assert(write_uint32(buf, &commandline->argc) != -1);
     
     for (uint32_t i = 0; i < commandline->argc; i++) {
-        assert(write_string(fd, &commandline->argv[i]) != -1);
+        assert(write_string(buf, &commandline->argv[i]) != -1);
     }
     
     return 0;
 }
 
-int write_task(int fd, const task *task, bool write_taskid) {
+int write_task(buffer *buf, const task *task, bool write_taskid) {
     if (write_taskid) {
-        assert(write_uint64(fd, &task->taskid) != -1);
+        assert(write_uint64(buf, &task->taskid) != -1);
     }
     
-    assert(write_timing(fd, &task->timing) != -1);
-    assert(write_commandline(fd, &task->commandline) != -1);
+    assert(write_timing(buf, &task->timing) != -1);
+    assert(write_commandline(buf, &task->commandline) != -1);
     
     return 0;
 }
 
-int write_task_array(int fd, const uint32_t *nbtasks, const task tasks[], bool read_taskid) {
-    assert(write_uint32(fd, nbtasks) != -1);
+int write_task_array(buffer *buf, const uint32_t *nbtasks, const task tasks[], bool read_taskid) {
+    assert(write_uint32(buf, nbtasks) != -1);
     
     for (uint32_t i = 0; i < *nbtasks; i++) {
-        assert(write_task(fd, &tasks[i], read_taskid) != -1);
+        assert(write_task(buf, &tasks[i], read_taskid) != -1);
     }
     
     return 0;
 }
 
-int write_run(int fd, const run *run) {
-    assert(write_uint64(fd, &run->time) != -1);
-    assert(write_uint16(fd, &run->exitcode) != -1);
+int write_run(buffer *buf, const run *run) {
+    assert(write_uint64(buf, &run->time) != -1);
+    assert(write_uint16(buf, &run->exitcode) != -1);
     
     return 0;
 }
 
-int write_run_array(int fd, const uint32_t *nbruns, const run runs[]) {
-    assert(write_uint32(fd, nbruns) != -1);
+int write_run_array(buffer *buf, const uint32_t *nbruns, const run runs[]) {
+    assert(write_uint32(buf, nbruns) != -1);
     
     for (uint32_t i = 0; i < *nbruns; i++) {
-        assert(write_run(fd, &runs[i]) != -1);
+        assert(write_run(buf, &runs[i]) != -1);
     }
     
     return 0;

@@ -11,7 +11,6 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
-
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -96,7 +95,9 @@ int main(int argc, char *argv[]) {
         int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
         if (request_write_fd != -1) {
             uint16_t opcode = 0;
-            fatal_assert(write_uint16(request_write_fd, &opcode) != -1, "cannot send `opcode` to request");
+            buffer buf = create_buffer();
+            fatal_assert(write_uint16(&buf, &opcode) != -1, "cannot write `opcode` to request");
+            fatal_assert(write_buffer(request_write_fd, &buf) != -1, "cannot write reply!\n");
             fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
             fatal_error("daemon is already running or pipes are being used by another process\n");
         }
@@ -196,32 +197,34 @@ int main(int argc, char *argv[]) {
             log2("sending to client `%s` with error `%s`.\n", reply_item_names()[reply.reptype], reply_error_item_names()[reply.errcode]);
         }
     
-        fatal_assert(write_uint16(reply_write_fd, &reply.reptype) != -1, "cannot write `reptype` to reply!\n");
+        buffer buf = create_buffer();
+        fatal_assert(write_uint16(&buf, &reply.reptype) != -1, "cannot write `reptype` to reply!\n");
         
         if (reply.reptype == SERVER_REPLY_OK) {
             switch (request.opcode) {
             case CLIENT_REQUEST_LIST_TASKS:
-                fatal_assert(write_task_array(reply_write_fd, &g_nbtasks, g_tasks, true) != -1, "cannot write `task` to reply!\n");
+                fatal_assert(write_task_array(&buf, &g_nbtasks, g_tasks, true) != -1, "cannot write `task` to reply!\n");
                 break;
             case CLIENT_REQUEST_CREATE_TASK:
-                fatal_assert(write_uint64(reply_write_fd, &g_last_taskid) != -1, "cannot write `taskid` to reply!\n");
+                fatal_assert(write_uint64(&buf, &g_last_taskid) != -1, "cannot write `taskid` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-                fatal_assert(write_run_array(reply_write_fd, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1, "cannot write `run_array` to reply!\n");
+                fatal_assert(write_run_array(&buf, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1, "cannot write `run_array` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_STDOUT:
-                fatal_assert(write_string(reply_write_fd, &g_stdouts[request.taskid]) != -1, "cannot write `output` to reply!\n");
+                fatal_assert(write_string(&buf, &g_stdouts[request.taskid]) != -1, "cannot write `output` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_STDERR:
-                fatal_assert(write_string(reply_write_fd, &g_stderrs[request.taskid]) != -1, "cannot write `output` to reply!\n");
+                fatal_assert(write_string(&buf, &g_stderrs[request.taskid]) != -1, "cannot write `output` to reply!\n");
                 break;
             default:
                 break;
             }
         } else {
-            fatal_assert(write_uint16(reply_write_fd, &reply.errcode) != -1, "cannot write `errcode` to reply!\n");
+            fatal_assert(write_uint16(&buf, &reply.errcode) != -1, "cannot write `errcode` to reply!\n");
         }
     
+        fatal_assert(write_buffer(reply_write_fd, &buf) != -1, "cannot write reply!\n");
         fatal_assert(close(reply_write_fd) != -1, "cannot close reply pipe!\n");
         
         if (request.opcode == CLIENT_REQUEST_TERMINATE) {

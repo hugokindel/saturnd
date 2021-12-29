@@ -21,6 +21,9 @@
 // Asserts a condition that terminate the program in case of error.
 #define fatal_assert(condition, message) if (!(condition)) { fatal_error(message); } (void)0
 
+// Creates a data (for sending data to a pipe).
+buffer create_buffer();
+
 // Allocate and defines every needed paths (for the pipes).
 int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path);
 
@@ -47,7 +50,7 @@ int cstring_from_string(char *dest, const string *string);
 int timing_from_strings(timing *dest, const char *minutes_str, const char *hours_str, const char *daysofweek_str);
 
 // Writes a text representation of timing in `*dest`, and adds a trailing `\0`.
-// The buffer must be able to hold at least `TIMING_TEXT_MIN_BUFFERSIZE` characters.
+// The data must be able to hold at least `TIMING_TEXT_MIN_BUFFERSIZE` characters.
 // Returns `-1` in case of failure, else the number of characters written.
 int timing_string_from_timing(char *dest, const timing *timing);
 
@@ -75,49 +78,52 @@ int timing_string_from_range(char *dest, unsigned int start, unsigned int stop);
 // Returns `-1` in case of failure, else 0.
 int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]);
 
-// Writes an `uint_8` (from host byte order to big endian order) to a file descriptor.
-// Returns `-1` in case of failure, else 0.
-int write_uint8(int fd, const uint8_t *n);
+// Writes a `data` to a file descriptor.
+int write_buffer(int fd, const buffer *buf);
 
-// Writes an `uint_16` (from host byte order to big endian order) to a file descriptor.
+// Writes an `uint_8` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_uint16(int fd, const uint16_t *n);
+int write_uint8(buffer *buf, const uint8_t *n);
 
-// Writes an `uint_32` (from host byte order to big endian order) to a file descriptor.
+// Writes an `uint_16` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_uint32(int fd, const uint32_t *n);
+int write_uint16(buffer *buf, const uint16_t *n);
 
-// Writes an `uint_64` (from host byte order to big endian order) to a file descriptor.
+// Writes an `uint_32` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_uint64(int fd, const uint64_t *n);
+int write_uint32(buffer *buf, const uint32_t *n);
 
-// Writes an `string` (from host byte order to big endian order) to a file descriptor.
+// Writes an `uint_64` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_string(int fd, const string *string);
+int write_uint64(buffer *buf, const uint64_t *n);
 
-// Writes an `timing` (from host byte order to big endian order) to a file descriptor.
+// Writes an `string` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_timing(int fd, const timing *timing);
+int write_string(buffer *buf, const string *string);
 
-// Writes an `commandline` (from host byte order to big endian order) to a file descriptor.
+// Writes an `timing` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_commandline(int fd, const commandline *commandline);
+int write_timing(buffer *buf, const timing *timing);
 
-// Writes an `task` in big endian to a file descriptor.
+// Writes an `commandline` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_task(int fd, const task *task, bool write_taskid);
+int write_commandline(buffer *buf, const commandline *commandline);
 
-// Writes an `task[]` (from host byte order to big endian order) to a file descriptor.
+// Writes an `task` in big endian to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_task_array(int fd, const uint32_t *nbtasks, const task tasks[], bool read_taskid);
+int write_task(buffer *buf, const task *task, bool write_taskid);
 
-// Writes an `run` (from host byte order to big endian order) to a file descriptor.
+// Writes an `task[]` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_run(int fd, const run *run);
+int write_task_array(buffer *buf, const uint32_t *nbtasks, const task tasks[], bool read_taskid);
 
-// Writes an `run[]` (from host byte order to big endian order) to a file descriptor.
+// Writes an `run` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_run_array(int fd, const uint32_t *nbruns, const run runs[]);
+int write_run(buffer *buf, const run *run);
+
+// Writes an `run[]` (from host byte order to big endian order) to a `data`.
+// Returns `-1` in case of failure, else 0.
+int write_run_array(buffer *buf, const uint32_t *nbruns, const run runs[]);
 
 // Reads an `uint_8` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
