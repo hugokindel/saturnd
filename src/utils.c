@@ -9,6 +9,7 @@
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
+#include <sys/syslimits.h>
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define htobe64(x) OSSwapHostToBigInt64(x)
@@ -18,6 +19,49 @@
 #else
 #include <endian.h>
 #endif
+
+int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path) {
+    if (*pipes_directory_path == NULL) {
+        *pipes_directory_path = calloc(1, PATH_MAX);
+        assert(*pipes_directory_path != NULL);
+        assert(sprintf(*pipes_directory_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
+    }
+    
+    *request_pipe_path = calloc(1, PATH_MAX);
+    assert(*request_pipe_path != NULL);
+    assert(sprintf(*request_pipe_path, "%s%s%s", *pipes_directory_path, (*request_pipe_path)[strlen(*request_pipe_path) - 1] == '/' ? "" : "/", REQUEST_PIPE_NAME) != -1);
+    
+    *reply_pipe_path = calloc(1, PATH_MAX);
+    assert(*reply_pipe_path != NULL);
+    assert(sprintf(*reply_pipe_path, "%s%s%s", *pipes_directory_path, (*reply_pipe_path)[strlen(*reply_pipe_path) - 1] == '/' ? "" : "/", REPLY_PIPE_NAME) != -1);
+    
+    return 0;
+}
+
+void cleanup_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path) {
+    if (*pipes_directory_path != NULL) {
+        free(*pipes_directory_path);
+        *pipes_directory_path = NULL;
+    }
+    
+    if (*request_pipe_path != NULL) {
+        free(*request_pipe_path);
+        *request_pipe_path = NULL;
+    }
+    
+    if (*reply_pipe_path != NULL) {
+        free(*reply_pipe_path);
+        *reply_pipe_path = NULL;
+    }
+}
+
+int get_error() {
+    if (errno != 0) {
+        perror(EXECUTABLE_NAME);
+    }
+    
+    return EXIT_FAILURE;
+}
 
 int mkdir_recursively(const char *path, uint16_t mode) {
     int err = 0;

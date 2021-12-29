@@ -22,8 +22,21 @@
 // The maximum size of a run history array.
 #define MAX_RUNS_HISTORY 64
 
-// Assert that returns -1 in case of error.
-#define assert(condition) if (!(condition)) { return -1; } (void)0
+// The default pipes directory to use.
+#define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
+
+// The name of the default request pipe.
+#define REQUEST_PIPE_NAME "saturnd-request-pipe"
+
+// The name of the default reply pipe.
+#define REPLY_PIPE_NAME "saturnd-reply-pipe"
+
+// The name of the currently built executable (used for logging purposes).
+#ifdef CASSINI
+#define EXECUTABLE_NAME "cassini"
+#else
+#define EXECUTABLE_NAME "saturnd"
+#endif
 
 // Describes a string.
 typedef struct string {

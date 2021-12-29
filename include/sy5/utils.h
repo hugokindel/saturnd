@@ -3,6 +3,33 @@
 
 #include <sy5/types.h>
 
+// Logs a syslog message.
+#define log(message) syslog(LOG_NOTICE, message)
+
+// Logs a syslog message with variadic arguments.
+#define log2(message, ...) syslog(LOG_NOTICE, message, __VA_ARGS__)
+
+// Prints an error message.
+#define error(message) fprintf(stderr, EXECUTABLE_NAME ": " message); log(message)
+
+// Prints an error message and terminate the program.
+#define fatal_error(message) error(message); goto error
+
+// Asserts a condition that returns `-1` in case of error.
+#define assert(condition) if (!(condition)) { return -1; } (void)0
+
+// Asserts a condition that terminate the program in case of error.
+#define fatal_assert(condition, message) if (!(condition)) { fatal_error(message); } (void)0
+
+// Allocate and defines every needed paths (for the pipes).
+int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path);
+
+// Cleanup and set to NULL every needed paths (for the pipes).
+void cleanup_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path);
+
+// Checks `errno` to call `perror` if needed and returns `EXIT_FAILURE`.
+int get_error();
+
 // Creates a directory by calling `mkdir` recursively on a path for every missing parts.
 // Returns `-1` in case of failure, else 0.
 int mkdir_recursively(const char *path, uint16_t mode);

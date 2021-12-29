@@ -8,7 +8,7 @@ add_executable(cassini
         include/sy5/request.h
         include/sy5/types.h
         include/sy5/utils.h
-        src/main.c
+        src/cassini.c
         src/reply.c
         src/request.c
         src/utils.c)
@@ -20,7 +20,7 @@ add_executable(saturnd
         include/sy5/request.h
         include/sy5/types.h
         include/sy5/utils.h
-        src/main.c
+        src/saturnd.c
         src/reply.c
         src/request.c
         src/utils.c)
