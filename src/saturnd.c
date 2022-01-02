@@ -98,7 +98,7 @@ static void *worker_thread(void *worker_arg) {
             }
             
             if (!alive) {
-                break;
+                goto cleanup;
             }
             
             log2("welcome from task %llu", worker_to_handle->task.taskid);
@@ -111,6 +111,7 @@ static void *worker_thread(void *worker_arg) {
         log("cannot remove task!\n");
     }
     
+    cleanup:
     free_worker(&worker_to_handle);
     
     return NULL;
