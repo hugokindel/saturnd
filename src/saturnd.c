@@ -21,6 +21,9 @@
 typedef struct worker {
     task task;
     pthread_t thread;
+    run *runs;
+    string last_stdout;
+    string last_stderr;
 } worker;
 
 static const char g_help[] =
@@ -39,6 +42,13 @@ static int create_worker(worker **dest, task task) {
     assert(tmp);
     
     tmp->task = task;
+    tmp->thread = 0;
+    tmp->runs = NULL;
+    tmp->last_stdout.length = 0;
+    tmp->last_stdout.data = NULL;
+    tmp->last_stderr.length = 0;
+    tmp->last_stderr.data = NULL;
+    
     *dest = tmp;
     
     return 0;
@@ -46,6 +56,9 @@ static int create_worker(worker **dest, task task) {
 
 static int free_worker(worker **worker) {
     free_task(&(*worker)->task);
+    array_free((*worker)->runs);
+    free_string(&(*worker)->last_stdout);
+    free_string(&(*worker)->last_stderr);
     free(*worker);
     *worker = NULL;
     
@@ -81,6 +94,16 @@ static int remove_task(uint64_t taskid) {
     return 0;
 }
 
+static worker *get_worker(uint64_t taskid) {
+    for (uint64_t i = 0; i < array_size(g_workers); i++) {
+        if (g_workers[i]->task.taskid == taskid) {
+            return g_workers[i];
+        }
+    }
+    
+    return NULL;
+}
+
 static void *worker_thread(void *worker_arg) {
     worker *worker_to_handle = (worker *)worker_arg;
     
@@ -100,10 +123,160 @@ static void *worker_thread(void *worker_arg) {
             if (!alive) {
                 goto cleanup;
             }
+    
+            int stdout_pipe[2];
+            if (pipe(stdout_pipe) == -1) {
+                log("cannot create stdout pipe!\n");
+                break;
+            }
             
-            log2("welcome from task %llu", worker_to_handle->task.taskid);
+            int stderr_pipe[2];
+            if (pipe(stderr_pipe) == -1) {
+                log("cannot create stderr pipe!\n");
+                break;
+            }
             
-            usleep(1000000);
+            uint64_t execution_time = time(NULL);
+    
+            pid_t fork_pid = fork();
+            
+            if (fork_pid == -1) {
+                log("cannot create task fork!\n");
+                break;
+            } else if (fork_pid == 0) {
+                if (close(stdout_pipe[0]) == -1) {
+                    log("cannot close stdout pipe!\n");
+                    break;
+                }
+                
+                if (close(stderr_pipe[0]) == -1) {
+                    log("cannot close stdout pipe!\n");
+                    break;
+                }
+    
+                if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
+                    log("cannot duplicate stdout!\n");
+                    break;
+                }
+    
+                if (close(stdout_pipe[1]) == -1) {
+                    log("cannot close stdout pipe!\n");
+                    break;
+                }
+    
+                if (dup2(stderr_pipe[1], STDERR_FILENO) == -1) {
+                    log("cannot duplicate stdout!\n");
+                    break;
+                }
+    
+                if (close(stderr_pipe[1]) == -1) {
+                    log("cannot close stderr pipe!\n");
+                    break;
+                }
+                
+                char **argv = NULL;
+                
+                for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
+                    char *arg = NULL;
+                    if (cstring_from_string(&arg, worker_to_handle->task.commandline.argv) == -1) {
+                        log("cannot convert cstring from string!\n");
+                        break;
+                    }
+                    
+                    if (array_push(argv, arg) == -1) {
+                        log("cannot push arg to argv!\n");
+                        break;
+                    }
+                }
+    
+                char *null_arg = NULL;
+                if (array_push(argv, null_arg) == -1) {
+                    log("cannot push arg to argv!\n");
+                    break;
+                }
+                
+                execvp(argv[0], argv);
+                perror("execve");
+                exit(EXIT_FAILURE);
+            }
+    
+            if (close(stdout_pipe[1]) == -1) {
+                log("cannot close stdout pipe!\n");
+                break;
+            }
+    
+            if (close(stderr_pipe[1]) == -1) {
+                log("cannot close stderr pipe!\n");
+                break;
+            }
+    
+            char buf[PIPE_BUF] = { 0 };
+            
+            char *stdout_buf = NULL;
+            while (read(stdout_pipe[0], buf, sizeof(buf)) != 0) {
+                write(STDOUT_FILENO, buf, strlen(buf));
+                
+                for (uint32_t i = 0; i < PIPE_BUF; i++) {
+                    array_push(stdout_buf, buf[i]);
+    
+                    if (buf[i] == 0) {
+                        break;
+                    }
+                }
+    
+                memset (buf, 0, sizeof(buf));
+            }
+    
+            char *stderr_buf = NULL;
+            while (read(stderr_pipe[0], buf, sizeof(buf)) != 0) {
+                write(STDERR_FILENO, buf, strlen(buf));
+    
+                for (uint32_t i = 0; i < PIPE_BUF; i++) {
+                    array_push(stderr_buf, buf[i]);
+    
+                    if (buf[i] == 0) {
+                        break;
+                    }
+                }
+    
+                char null_char = 0;
+                array_push(stderr_buf, null_char);
+    
+                memset (buf, 0, sizeof(buf));
+            }
+    
+            if (close(stdout_pipe[0]) == -1) {
+                log("cannot close stdout pipe!\n");
+                break;
+            }
+            
+            if (close(stderr_pipe[0]) == -1) {
+                log("cannot close stderr pipe!\n");
+                break;
+            }
+            
+            int exitcode = 1;
+            waitpid(fork_pid, &exitcode, 0);
+    
+            if (stdout_buf != NULL) {
+                string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
+            }
+            
+            if (stderr_buf != NULL) {
+                string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
+            }
+            
+            array_free(stdout_buf);
+            array_free(stderr_buf);
+    
+            run cur_run = {
+                .exitcode = exitcode,
+                .time = execution_time
+            };
+            
+            array_push(worker_to_handle->runs, cur_run);
+            
+            usleep(1000000); // TODO: Use timing
         }
     }
     
@@ -254,6 +427,24 @@ int main(int argc, char *argv[]) {
         // Writes a reply.
         reply reply;
         switch (request.opcode) {
+        case CLIENT_REQUEST_LIST_TASKS: {
+            task *tasks = NULL;
+    
+            for (uint64_t i = 0; i < array_size(g_workers); i++) {
+                worker *worker = g_workers[i];
+                bool alive = false;
+                fatal_assert(is_task_alive(&alive, worker->task.taskid) != -1, "cannot check if task is alive!\n");
+        
+                if (alive) {
+                    array_push(tasks, worker->task);
+                }
+            }
+    
+            reply.tasks = tasks;
+            reply.reptype = SERVER_REPLY_OK;
+            
+            break;
+        }
         case CLIENT_REQUEST_CREATE_TASK: {
             request.task.taskid = g_taskid++;
             
@@ -262,6 +453,7 @@ int main(int argc, char *argv[]) {
             fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`");
             fatal_assert(pthread_create(&(array_last(g_workers)->thread), NULL, worker_thread, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     
+            reply.taskid = request.task.taskid;
             reply.reptype = SERVER_REPLY_OK;
             
             break;
@@ -281,16 +473,49 @@ int main(int argc, char *argv[]) {
             
             break;
         }
-        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
+        case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
+            bool alive = false;
+            fatal_assert(is_task_alive(&alive, request.taskid) != -1, "cannot check if task is alive!\n");
+            if (!alive) {
+                reply.reptype = SERVER_REPLY_ERROR;
+                reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
+                break;
+            }
+    
+            reply.runs = get_worker(request.taskid)->runs;
             reply.reptype = SERVER_REPLY_OK;
+            
             break;
+        }
         case CLIENT_REQUEST_GET_STDOUT:
-        case CLIENT_REQUEST_GET_STDERR:
-            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
-            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NEVER_RUN' if `taskid` exists but has not yet been run.
+        case CLIENT_REQUEST_GET_STDERR: {
+            bool alive = false;
+            fatal_assert(is_task_alive(&alive, request.taskid) != -1, "cannot check if task is alive!\n");
+            if (!alive) {
+                reply.reptype = SERVER_REPLY_ERROR;
+                reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
+                break;
+            }
+            
+            worker *task_worker = get_worker(request.taskid);
+            fatal_assert(task_worker, "task worker is `NULL`!\n");
+            
+            if (array_empty(task_worker->runs)) {
+                reply.reptype = SERVER_REPLY_ERROR;
+                reply.errcode = SERVER_REPLY_ERROR_NEVER_RUN;
+                break;
+            }
+            
+            if (request.opcode == CLIENT_REQUEST_GET_STDOUT) {
+                reply.output = task_worker->last_stdout;
+            } else {
+                reply.output = task_worker->last_stderr;
+            }
+            
             reply.reptype = SERVER_REPLY_OK;
+            
             break;
+        }
         default:
             reply.reptype = SERVER_REPLY_ERROR;
             reply.errcode = 0;
@@ -311,20 +536,27 @@ int main(int argc, char *argv[]) {
         
         if (reply.reptype == SERVER_REPLY_OK) {
             switch (request.opcode) {
-            case CLIENT_REQUEST_LIST_TASKS:
-                //fatal_assert(write_task_array(&buf, &g_nbtasks, g_tasks, true) != -1, "cannot write `task` to reply!\n");
+            case CLIENT_REQUEST_LIST_TASKS: {
+                uint32_t size = array_size(reply.tasks);
+                fatal_assert(write_task_array(&buf, &size, reply.tasks, true) != -1, "cannot write `task` to reply!\n");
+                array_free(reply.tasks);
+                
                 break;
+            }
             case CLIENT_REQUEST_CREATE_TASK:
-                fatal_assert(write_uint64(&buf, &request.task.taskid) != -1, "cannot write `taskid` to reply!\n");
+                fatal_assert(write_uint64(&buf, &reply.taskid) != -1, "cannot write `taskid` to reply!\n");
+                
                 break;
-            case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-                //fatal_assert(write_run_array(&buf, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1, "cannot write `run_array` to reply!\n");
+            case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
+                uint32_t size = array_size(reply.runs);
+                fatal_assert(write_run_array(&buf, &size, reply.runs) != -1, "cannot write `run_array` to reply!\n");
+                
                 break;
+            }
             case CLIENT_REQUEST_GET_STDOUT:
-                //fatal_assert(write_string(&buf, &g_stdouts[request.taskid]) != -1, "cannot write `output` to reply!\n");
-                break;
             case CLIENT_REQUEST_GET_STDERR:
-                //fatal_assert(write_string(&buf, &g_stderrs[request.taskid]) != -1, "cannot write `output` to reply!\n");
+                fatal_assert(write_string(&buf, &reply.output) != -1, "cannot write `output` to reply!\n");
+                
                 break;
             default:
                 break;

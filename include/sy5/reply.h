@@ -32,6 +32,24 @@ typedef struct reply {
     
     // Error code (if any).
     uint16_t errcode;
+    
+    union {
+        struct {
+            uint64_t taskid;
+        };
+        
+        struct {
+            string output;
+        };
+    
+        struct {
+            run *runs;
+        };
+    
+        struct {
+            task *tasks;
+        };
+    };
 } reply;
 
 // Returns an array of names for each `reply_item`.

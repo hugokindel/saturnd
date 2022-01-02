@@ -2,7 +2,7 @@
 
 CC = gcc
 CCFLAGS = -Wall -std=gnu99 -Iinclude
-COMMONSRC = src/array.c src/reply.c src/request.c src/utils.c
+COMMONSRC = src/reply.c src/request.c src/utils.c
 
 all: cassini saturnd
 

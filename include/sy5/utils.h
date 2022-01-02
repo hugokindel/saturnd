@@ -43,7 +43,7 @@ int string_from_cstring(string *dest, const char *cstring);
 
 // Writes the result in `*dest`.
 // Returns `-1` in case of failure, else 0.
-int cstring_from_string(char *dest, const string *string);
+int cstring_from_string(char **dest, const string *string);
 
 // Writes the result in `*dest`.
 // Returns `-1` in case of failure, else the number of characters read.

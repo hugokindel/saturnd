@@ -25,7 +25,7 @@ static const char g_help[] =
     "\tor: cassini [OPTIONS] -r TASKID -> remove a task\n"
     "\tor: cassini [OPTIONS] -x TASKID -> get info (time + exit code) on all the past runs of a task\n"
     "\tor: cassini [OPTIONS] -o TASKID -> get the standard output of the last run of a task\n"
-    "\tor: cassini [OPTIONS] -e TASKID -> get the standard error\n"
+    "\tor: cassini [OPTIONS] -e TASKID -> get the standard error of the last run of a task\n"
     "\tor: cassini -h -> display this message\n"
     "\n"
     "options:\n"
@@ -107,7 +107,10 @@ int main(int argc, char *argv[]) {
         error("use `-h` for more informations\n");
     }
     
-    fatal_assert(opt_opcode != 0, "you need to specify an opcode\n");
+    if (opt_opcode == 0) {
+        opt_opcode = CLIENT_REQUEST_LIST_TASKS;
+    }
+    
     fatal_assert(allocate_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path) != -1, "cannot define pipes!\n");
     
     int request_write_fd;
@@ -183,9 +186,10 @@ int main(int argc, char *argv[]) {
                 printf("%lu: %s", tasks[i].taskid, timing_str);
 #endif
                 for (uint32_t j = 0; j < tasks[i].commandline.argc; j++) {
-                    char argv_str[PIPE_BUF];
-                    fatal_assert(cstring_from_string(argv_str, &tasks[i].commandline.argv[j]) != -1, "cannot read `argv` from response!\n");
+                    char *argv_str = NULL;
+                    fatal_assert(cstring_from_string(&argv_str, &tasks[i].commandline.argv[j]) != -1, "cannot read `argv` from response!\n");
                     printf(" %s", argv_str);
+                    free(argv_str);
                 }
                 printf("\n");
             }
@@ -218,9 +222,12 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_GET_STDERR: {
             string output;
             fatal_assert(read_string(reply_read_fd, &output) != -1, "cannot read `output` from response!\n");
-            char output_str[PIPE_BUF];
-            fatal_assert(cstring_from_string(output_str, &output) != -1, "cannot parse `output` from response!\n");
-            printf("%s\n", output_str);
+            char *output_str = NULL;
+            fatal_assert(cstring_from_string(&output_str, &output) != -1, "cannot parse `output` from response!\n");
+            if (output_str != NULL) {
+                printf("%s", output_str);
+            }
+            free(output_str);
             break;
         }
         default:

@@ -118,14 +118,16 @@ int string_from_cstring(string *dest, const char *cstring) {
     return 0;
 }
 
-int cstring_from_string(char *dest, const string *string) {
+int cstring_from_string(char **dest, const string *string) {
     assert(string->length <= PIPE_BUF);
     
+    *dest = malloc(string->length);
+    assert(*dest);
     for (uint32_t i = 0; i < string->length; i++) {
-        dest[i] = (uint8_t)string->data[i]; // NOLINT
+        (*dest)[i] = (uint8_t)string->data[i]; // NOLINT
     }
     
-    dest[string->length] = '\0';
+    (*dest)[string->length] = '\0';
     
     return 0;
 }
@@ -307,7 +309,18 @@ int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
 }
 
 int write_buffer(int fd, const buffer *buf) {
-    assert(write(fd, buf->data, buf->length) != -1);
+    uint32_t remaining = buf->length;
+    uint32_t i = 0;
+    
+    do {
+        if (i > 0) {
+            remaining -= PIPE_BUF;
+        }
+        
+        assert(write(fd, buf->data + i * PIPE_BUF, remaining > PIPE_BUF ? PIPE_BUF : remaining) != -1);
+    
+        i++;
+    } while (remaining > PIPE_BUF);
     
     return 0;
 }
