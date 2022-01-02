@@ -159,7 +159,7 @@ int read_task(int fd, task *task, bool read_taskid);
 
 // Reads an `task[]` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
-int read_task_array(int fd, task task[], bool read_taskid);
+int read_task_array(int fd, task **tasks);
 
 // Reads an `run` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
@@ -167,7 +167,7 @@ int read_run(int fd, run *run);
 
 // Reads an `run[]` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
-int read_run_array(int fd, run run[]);
+int read_run_array(int fd, run **runs);
 
 int copy_timing(timing *dest, const timing *src);
 

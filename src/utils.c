@@ -296,7 +296,6 @@ int timing_string_from_range(char *dest, unsigned int start, unsigned int stop) 
 
 int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
     dest->argc = argc;
-    assert(dest->argc <= MAX_COMMANDLINE_ARGUMENTS);
     
     dest->argv = malloc(dest->argc * sizeof(string));
     assert(dest->argv);
@@ -504,12 +503,14 @@ int read_task(int fd, task *task, bool read_taskid) {
     return 0;
 }
 
-int read_task_array(int fd, task task[], bool read_taskid) {
+int read_task_array(int fd, task **tasks) {
     uint32_t nbtasks;
     assert(read_uint32(fd, &nbtasks) != -1);
     
     for (uint32_t i = 0; i < nbtasks; i++) {
-        assert(read_task(fd, &task[i], read_taskid) != -1);
+        task task;
+        assert(read_task(fd, &task, true) != -1);
+        array_push(*tasks, task);
     }
     
     return (int)nbtasks;
@@ -522,12 +523,14 @@ int read_run(int fd, run *run) {
     return 0;
 }
 
-int read_run_array(int fd, run run[]) {
+int read_run_array(int fd, run **runs) {
     uint32_t nbruns;
     assert(read_uint32(fd, &nbruns) != -1);
     
     for (uint32_t i = 0; i < nbruns; i++) {
-        assert(read_run(fd, &run[i]) != -1);
+        run run;
+        assert(read_run(fd, &run) != -1);
+        array_push(*runs, run);
     }
     
     return (int)nbruns;

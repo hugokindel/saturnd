@@ -9,6 +9,8 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
+#include "sy5/array.h"
+
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -175,11 +177,11 @@ int main(int argc, char *argv[]) {
         
         switch (opt_opcode) {
         case CLIENT_REQUEST_LIST_TASKS: {
-            task tasks[MAX_TASKS];
-            uint32_t nbtasks = read_task_array(reply_read_fd, tasks, true);
+            task *tasks = NULL;
+            uint32_t nbtasks = read_task_array(reply_read_fd, &tasks);
             fatal_assert(nbtasks != -1, "cannot read `nbtasks` from response!\n");
             for (uint32_t i = 0; i < nbtasks; i++) {
-                char timing_str[PIPE_BUF];
+                char timing_str[TIMING_TEXT_MIN_BUFFERSIZE];
                 fatal_assert(timing_string_from_timing(timing_str, &tasks[i].timing) != -1, "cannot read `timing` from response!\n");
 #ifdef __APPLE__
                 printf("%llu: %s", tasks[i].taskid, timing_str);
@@ -194,6 +196,7 @@ int main(int argc, char *argv[]) {
                 }
                 printf("\n");
             }
+            array_free(tasks);
             break;
         }
         case CLIENT_REQUEST_CREATE_TASK: {
@@ -207,8 +210,8 @@ int main(int argc, char *argv[]) {
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
-            run runs[MAX_RUNS_HISTORY];
-            uint32_t nbruns = read_run_array(reply_read_fd, runs);
+            run *runs = NULL;
+            uint32_t nbruns = read_run_array(reply_read_fd, &runs);
             fatal_assert(nbruns != -1, "cannot read `nbruns` from response!\n");
             for (uint32_t i = 0; i < nbruns; i++) {
                 time_t timestamp = (time_t)runs[i].time;
@@ -217,6 +220,7 @@ int main(int argc, char *argv[]) {
                 fatal_assert(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1, "cannot format `timing` from response!\n");
                 printf("%s %d\n", time_str, runs[i].exitcode);
             }
+            array_free(runs);
             break;
         }
         case CLIENT_REQUEST_GET_STDOUT:

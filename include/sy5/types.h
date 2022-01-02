@@ -10,15 +10,6 @@
 // Includes `PIPE_BUF`.
 #include <limits.h>
 
-// The maximum number of arguments within a command line.
-#define MAX_COMMANDLINE_ARGUMENTS 32
-
-// The maximum number of tasks that can be handled by a daemon.
-#define MAX_TASKS 64
-
-// The maximum size of a run history array.
-#define MAX_RUNS_HISTORY 64
-
 // The default pipes directory to use.
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 
@@ -27,6 +18,9 @@
 
 // The name of the default reply pipe.
 #define REPLY_PIPE_NAME "saturnd-reply-pipe"
+
+// The buffer size needed for a timing string.
+#define TIMING_TEXT_MIN_BUFFERSIZE 1024
 
 // The name of the currently built executable (used for logging purposes).
 #ifdef CASSINI
