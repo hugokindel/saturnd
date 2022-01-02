@@ -115,7 +115,7 @@ int write_task(buffer *buf, const task *task, bool write_taskid);
 
 // Writes an `task[]` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_task_array(buffer *buf, const uint32_t *nbtasks, const task tasks[], bool read_taskid);
+int write_task_array(buffer *buf, const task *tasks);
 
 // Writes an `run` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
@@ -123,7 +123,7 @@ int write_run(buffer *buf, const run *run);
 
 // Writes an `run[]` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_run_array(buffer *buf, const uint32_t *nbruns, const run runs[]);
+int write_run_array(buffer *buf, const run *runs);
 
 // Reads an `uint_8` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.

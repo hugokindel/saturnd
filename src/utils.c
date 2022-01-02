@@ -10,6 +10,8 @@
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 #include <sys/syslimits.h>
+#include "sy5/array.h"
+
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define htobe64(x) OSSwapHostToBigInt64(x)
@@ -23,7 +25,7 @@
 buffer create_buffer() {
     buffer buffer = {
         .length = 0,
-        .data = {0 }
+        .data = NULL
     };
     
     return buffer;
@@ -105,7 +107,6 @@ int mkdir_recursively(const char *path, uint16_t mode) {
 
 int string_from_cstring(string *dest, const char *cstring) {
     dest->length = strlen(cstring);
-    assert(dest->length <= PIPE_BUF);
     
     dest->data = malloc(dest->length);
     assert(dest->data);
@@ -119,8 +120,6 @@ int string_from_cstring(string *dest, const char *cstring) {
 }
 
 int cstring_from_string(char **dest, const string *string) {
-    assert(string->length <= PIPE_BUF);
-    
     *dest = malloc(string->length);
     assert(*dest);
     for (uint32_t i = 0; i < string->length; i++) {
@@ -326,7 +325,8 @@ int write_buffer(int fd, const buffer *buf) {
 }
 
 int write_uint8(buffer *buf, const uint8_t *n) {
-    assert(buf->length + sizeof(uint8_t) <= PIPE_BUF);
+    buf->data = realloc(buf->data, buf->length + sizeof(uint8_t));
+    assert(buf->data);
     assert(memcpy(buf->data + buf->length, n, sizeof(uint8_t)) != NULL);
     buf->length += sizeof(uint8_t);
     
@@ -334,7 +334,8 @@ int write_uint8(buffer *buf, const uint8_t *n) {
 }
 
 int write_uint16(buffer *buf, const uint16_t *n) {
-    assert(buf->length + sizeof(uint16_t) <= PIPE_BUF);
+    buf->data = realloc(buf->data, buf->length + sizeof(uint16_t));
+    assert(buf->data);
     uint16_t be_n = htobe16(*n);
     assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint16_t)) != NULL);
     buf->length += sizeof(uint16_t);
@@ -343,7 +344,8 @@ int write_uint16(buffer *buf, const uint16_t *n) {
 }
 
 int write_uint32(buffer *buf, const uint32_t *n) {
-    assert(buf->length + sizeof(uint32_t) <= PIPE_BUF);
+    buf->data = realloc(buf->data, buf->length + sizeof(uint32_t));
+    assert(buf->data);
     uint32_t be_n = htobe32(*n);
     assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint32_t)) != NULL);
     buf->length += sizeof(uint32_t);
@@ -352,7 +354,8 @@ int write_uint32(buffer *buf, const uint32_t *n) {
 }
 
 int write_uint64(buffer *buf, const uint64_t *n) {
-    assert(buf->length + sizeof(uint64_t) <= PIPE_BUF);
+    buf->data = realloc(buf->data, buf->length + sizeof(uint64_t));
+    assert(buf->data);
     uint64_t be_n = htobe64(*n);
     assert(memcpy(buf->data + buf->length, &be_n, sizeof(uint64_t)) != NULL);
     buf->length += sizeof(uint64_t);
@@ -399,11 +402,12 @@ int write_task(buffer *buf, const task *task, bool write_taskid) {
     return 0;
 }
 
-int write_task_array(buffer *buf, const uint32_t *nbtasks, const task tasks[], bool read_taskid) {
-    assert(write_uint32(buf, nbtasks) != -1);
+int write_task_array(buffer *buf, const task *tasks) {
+    uint32_t size = array_size(tasks);
+    assert(write_uint32(buf, &size) != -1);
     
-    for (uint32_t i = 0; i < *nbtasks; i++) {
-        assert(write_task(buf, &tasks[i], read_taskid) != -1);
+    for (uint32_t i = 0; i < size; i++) {
+        assert(write_task(buf, &tasks[i], true) != -1);
     }
     
     return 0;
@@ -416,10 +420,11 @@ int write_run(buffer *buf, const run *run) {
     return 0;
 }
 
-int write_run_array(buffer *buf, const uint32_t *nbruns, const run runs[]) {
-    assert(write_uint32(buf, nbruns) != -1);
+int write_run_array(buffer *buf, const run *runs) {
+    uint32_t size = array_size(runs);
+    assert(write_uint32(buf, &size) != -1);
     
-    for (uint32_t i = 0; i < *nbruns; i++) {
+    for (uint32_t i = 0; i < size; i++) {
         assert(write_run(buf, &runs[i]) != -1);
     }
     

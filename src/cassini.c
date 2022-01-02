@@ -159,6 +159,7 @@ int main(int argc, char *argv[]) {
     }
     
     fatal_assert(write_buffer(request_write_fd, &buf) != -1, "cannot write request!\n");
+    free(buf.data);
     fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
     
     // Waits for a reply...

@@ -41,7 +41,7 @@ typedef struct buffer {
     uint32_t length;
     
     // Data of the buffer.
-    uint8_t data[PIPE_BUF];
+    uint8_t *data;
 } buffer;
 
 // Describes a string.
