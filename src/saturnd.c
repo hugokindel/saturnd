@@ -11,23 +11,110 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
+#include <sy5/array.h>
+#include <pthread.h>
+
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
-uint64_t g_last_taskid;
-uint32_t g_nbtasks;
-task g_tasks[MAX_TASKS];
-uint32_t g_nbruns[MAX_TASKS];
-run g_runs[MAX_TASKS][MAX_RUNS_HISTORY];
-string g_stdouts[MAX_TASKS];
-string g_stderrs[MAX_TASKS];
+typedef struct worker {
+    task task;
+    pthread_t thread;
+} worker;
 
-const char usage_info[] =
+static const char g_help[] =
     "usage: saturnd [OPTIONS]\n"
     "\n"
     "options:\n"
     "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
+
+static worker **g_workers = NULL;
+static uint64_t *g_running_taskids = NULL;
+static pthread_mutex_t g_running_taskids_mutex = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t g_taskid = 0;
+
+static int create_worker(worker **dest, task task) {
+    worker *tmp = malloc(sizeof(worker));
+    assert(tmp);
+    
+    tmp->task = task;
+    *dest = tmp;
+    
+    return 0;
+}
+
+static int free_worker(worker **worker) {
+    free_task(&(*worker)->task);
+    free(*worker);
+    *worker = NULL;
+    
+    return 0;
+}
+
+static int is_task_alive(bool *is_still_alive, uint64_t taskid) {
+    assert(g_running_taskids != NULL);
+    
+    for (uint64_t i = 0; i < array_size(g_running_taskids); i++) {
+        if (g_running_taskids[i] == taskid) {
+            *is_still_alive = true;
+            break;
+        }
+    }
+    
+    return 0;
+}
+
+static int remove_task(uint64_t taskid) {
+    assert(g_running_taskids != NULL);
+    assert(pthread_mutex_lock(&g_running_taskids_mutex) == 0);
+    
+    for (uint64_t i = 0; i < array_size(g_running_taskids); i++) {
+        if (g_running_taskids[i] == taskid) {
+            array_remove(g_running_taskids, i);
+            break;
+        }
+    }
+    
+    assert(pthread_mutex_unlock(&g_running_taskids_mutex) == 0);
+    
+    return 0;
+}
+
+static void *worker_thread(void *worker_arg) {
+    worker *worker_to_handle = (worker *)worker_arg;
+    
+    pthread_mutex_lock(&g_running_taskids_mutex);
+    array_push(g_running_taskids, worker_to_handle->task.taskid);
+    pthread_mutex_unlock(&g_running_taskids_mutex);
+    
+    {
+        while (true) {
+            bool alive = false;
+            
+            if (is_task_alive(&alive, worker_to_handle->task.taskid) == -1) {
+                log("cannot check if task is alive!\n");
+                break;
+            }
+            
+            if (!alive) {
+                break;
+            }
+            
+            log2("welcome from task %llu", worker_to_handle->task.taskid);
+            
+            usleep(1000000);
+        }
+    }
+    
+    if (remove_task(worker_to_handle->task.taskid) == -1) {
+        log("cannot remove task!\n");
+    }
+    
+    free_worker(&worker_to_handle);
+    
+    return NULL;
+}
 
 int main(int argc, char *argv[]) {
     errno = 0;
@@ -43,7 +130,7 @@ int main(int argc, char *argv[]) {
     while ((opt = getopt(argc, argv, "hp:")) != -1) {
         switch (opt) {
         case 'h':
-            printf("%s", usage_info);
+            printf("%s", g_help);
             return exit_code;
         case 'p':
             pipes_directory_path = strdup(optarg);
@@ -110,21 +197,23 @@ int main(int argc, char *argv[]) {
     fatal_assert(reply_pipe_found || mkfifo(reply_pipe_path, 0666) != -1, "cannot create the reply pipe!\n");
     
     closedir(dir);
-    
+
+#ifdef DAEMONIZE
     // Attempts a double fork to become a daemon.
-    pid_t pid = fork();
+    pid_t daemon_pid = fork();
     
-    fatal_assert(pid != -1, "cannot create the  daemon through double fork (failed initial fork)!\n");
-    if (pid != 0) {
+    fatal_assert(daemon_pid != -1, "cannot create the daemon process (failed initial fork)!\n");
+    if (daemon_pid != 0) {
         exit(EXIT_SUCCESS);
     }
     
-    pid = fork();
+    daemon_pid = fork();
     
-    fatal_assert(pid != -1, "cannot create the  daemon through double fork (failed second fork)!\n");
-    if (pid != 0) {
+    fatal_assert(daemon_pid != -1, "cannot create the daemon process (failed second fork)!\n");
+    if (daemon_pid != 0) {
         exit(EXIT_SUCCESS);
     }
+#endif
     
     log("daemon started.\n");
     
@@ -164,15 +253,33 @@ int main(int argc, char *argv[]) {
         // Writes a reply.
         reply reply;
         switch (request.opcode) {
-        case CLIENT_REQUEST_CREATE_TASK:
-            // TODO: Create the task and its data in a pthread.
+        case CLIENT_REQUEST_CREATE_TASK: {
+            request.task.taskid = g_taskid++;
+            
+            worker *new_worker = NULL;
+            fatal_assert(create_worker(&new_worker, request.task) != -1, "cannot create worker!\n");
+            fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`");
+            fatal_assert(pthread_create(&(array_last(g_workers)->thread), NULL, worker_thread, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+    
             reply.reptype = SERVER_REPLY_OK;
+            
             break;
-        case CLIENT_REQUEST_REMOVE_TASK:
-            // TODO: Stop the task's pthread and remove its data if `taskid` does exists.
-            // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
+        }
+        case CLIENT_REQUEST_REMOVE_TASK: {
+            bool alive = false;
+            fatal_assert(is_task_alive(&alive, request.taskid) != -1, "cannot check if task is alive!\n");
+            if (!alive) {
+                reply.reptype = SERVER_REPLY_ERROR;
+                reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
+                break;
+            }
+    
+            fatal_assert(remove_task(request.taskid) != -1, "cannot remove task!\n");
+            
             reply.reptype = SERVER_REPLY_OK;
+            
             break;
+        }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
             // TODO: Set `reply.errcode` to 'SERVER_REPLY_ERROR_NOT_FOUND' if `taskid` does not exists.
             reply.reptype = SERVER_REPLY_OK;
@@ -184,7 +291,8 @@ int main(int argc, char *argv[]) {
             reply.reptype = SERVER_REPLY_OK;
             break;
         default:
-            reply.reptype = SERVER_REPLY_OK;
+            reply.reptype = SERVER_REPLY_ERROR;
+            reply.errcode = 0;
             break;
         }
         
@@ -203,19 +311,19 @@ int main(int argc, char *argv[]) {
         if (reply.reptype == SERVER_REPLY_OK) {
             switch (request.opcode) {
             case CLIENT_REQUEST_LIST_TASKS:
-                fatal_assert(write_task_array(&buf, &g_nbtasks, g_tasks, true) != -1, "cannot write `task` to reply!\n");
+                //fatal_assert(write_task_array(&buf, &g_nbtasks, g_tasks, true) != -1, "cannot write `task` to reply!\n");
                 break;
             case CLIENT_REQUEST_CREATE_TASK:
-                fatal_assert(write_uint64(&buf, &g_last_taskid) != -1, "cannot write `taskid` to reply!\n");
+                fatal_assert(write_uint64(&buf, &request.task.taskid) != -1, "cannot write `taskid` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
-                fatal_assert(write_run_array(&buf, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1, "cannot write `run_array` to reply!\n");
+                //fatal_assert(write_run_array(&buf, &g_nbruns[request.taskid], g_runs[request.taskid]) != -1, "cannot write `run_array` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_STDOUT:
-                fatal_assert(write_string(&buf, &g_stdouts[request.taskid]) != -1, "cannot write `output` to reply!\n");
+                //fatal_assert(write_string(&buf, &g_stdouts[request.taskid]) != -1, "cannot write `output` to reply!\n");
                 break;
             case CLIENT_REQUEST_GET_STDERR:
-                fatal_assert(write_string(&buf, &g_stderrs[request.taskid]) != -1, "cannot write `output` to reply!\n");
+                //fatal_assert(write_string(&buf, &g_stderrs[request.taskid]) != -1, "cannot write `output` to reply!\n");
                 break;
             default:
                 break;
@@ -240,6 +348,7 @@ int main(int argc, char *argv[]) {
     exit_code = get_error();
     
     cleanup:
+    array_free(g_workers);
     cleanup_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path);
     
     return exit_code;

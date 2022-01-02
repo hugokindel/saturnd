@@ -13,7 +13,7 @@
 #include <unistd.h>
 #endif
 
-const char usage_info[] =
+static const char g_help[] =
     "usage: cassini [OPTIONS] -l -> list all tasks\n"
     "\tor: cassini [OPTIONS]    -> same\n"
     "\tor: cassini [OPTIONS] -q -> terminate the daemon\n"
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     while ((opt = getopt(argc, argv, "hp:lcqm:H:d:r:x:o:e:")) != -1) {
         switch (opt) {
         case 'h':
-            printf("%s", usage_info);
+            printf("%s", g_help);
             return exit_code;
         case 'p':
             pipes_directory_path = strdup(optarg);
@@ -141,6 +141,7 @@ int main(int argc, char *argv[]) {
         fatal_assert(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1, "cannot parse `timing`!\n");
         fatal_assert(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1, "cannot parse `commandline`!\n");
         fatal_assert(write_task(&buf, &task, false) != -1, "cannot write `task` to request!\n");
+        free_task(&task);
         break;
     }
     case CLIENT_REQUEST_REMOVE_TASK:

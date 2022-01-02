@@ -105,9 +105,10 @@ int mkdir_recursively(const char *path, uint16_t mode) {
 
 int string_from_cstring(string *dest, const char *cstring) {
     dest->length = strlen(cstring);
-    
     assert(dest->length <= PIPE_BUF);
     
+    dest->data = malloc(dest->length);
+    assert(dest->data);
     for (uint32_t i = 0; i < dest->length; i++) {
         dest->data[i] = cstring[i];
     }
@@ -293,10 +294,11 @@ int timing_string_from_range(char *dest, unsigned int start, unsigned int stop) 
 }
 
 int commandline_from_args(commandline *dest, unsigned int argc, char *argv[]) {
-    assert(argc <= MAX_COMMANDLINE_ARGUMENTS);
-    
     dest->argc = argc;
+    assert(dest->argc <= MAX_COMMANDLINE_ARGUMENTS);
     
+    dest->argv = malloc(dest->argc * sizeof(string));
+    assert(dest->argv);
     for (uint32_t i = 0; i < dest->argc; i++) {
         assert(string_from_cstring(&dest->argv[i], argv[i]) != -1);
     }
@@ -442,6 +444,9 @@ int read_uint64(int fd, uint64_t *n) {
 int read_string(int fd, string *string) {
     assert(read_uint32(fd, &string->length) != -1);
     
+    string->data = malloc(string->length);
+    assert(string->data);
+    
     for (uint32_t i = 0; i < string->length; i++) {
         assert(read_uint8(fd, &string->data[i]) != -1);
     }
@@ -459,6 +464,9 @@ int read_timing(int fd, timing *timing) {
 
 int read_commandline(int fd, commandline *commandline) {
     assert(read_uint32(fd, &commandline->argc) != -1);
+    
+    commandline->argv = malloc(commandline->argc * sizeof(string));
+    assert(commandline->argv);
     
     for (uint32_t i = 0; i < commandline->argc; i++) {
         assert(read_string(fd, &commandline->argv[i]) != -1);
@@ -505,4 +513,66 @@ int read_run_array(int fd, run run[]) {
     }
     
     return (int)nbruns;
+}
+
+int copy_timing(timing *dest, const timing *src) {
+    dest->daysofweek = src->daysofweek;
+    dest->hours = src->hours;
+    dest->minutes = src->minutes;
+    
+    return 0;
+}
+
+int copy_string(string *dest, const string *src) {
+    dest->length = src->length;
+    dest->data = malloc(dest->length);
+    assert(dest->data);
+    for (uint32_t i = 0; i < dest->length; i++) {
+        dest->data[i] = src->data[i];
+    }
+    
+    return 0;
+}
+
+int copy_commandline(commandline *dest, const commandline *src) {
+    dest->argc = src->argc;
+    dest->argv = malloc(dest->argc * sizeof(string));
+    assert(dest->argv);
+    for (uint32_t i = 0; i < dest->argc; i++) {
+        assert(copy_string(&dest->argv[i], &src->argv[i]) != -1);
+    }
+    
+    return 0;
+}
+
+int copy_task(task *dest, const task *src) {
+    dest->taskid = src->taskid;
+    assert(copy_timing(&dest->timing, &src->timing) != -1);
+    assert(copy_commandline(&dest->commandline, &src->commandline) != -1);
+    
+    return 0;
+}
+
+int free_string(string *string) {
+    free(string->data);
+    string->data = NULL;
+    
+    return 0;
+}
+
+int free_commandline(commandline *commandline) {
+    for (uint32_t i = 0; i < commandline->argc; i++) {
+        free_string(&commandline->argv[i]);
+    }
+    
+    free(commandline->argv);
+    commandline->argv = NULL;
+    
+    return 0;
+}
+
+int free_task(task *task) {
+    free_commandline(&task->commandline);
+    
+    return 0;
 }

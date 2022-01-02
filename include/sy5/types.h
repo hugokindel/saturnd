@@ -35,7 +35,7 @@
 #define EXECUTABLE_NAME "saturnd"
 #endif
 
-// Describes a buffer (identical to a string).
+// Describes a buffer (using `PIPE_BUF` for atomic writing).
 typedef struct buffer {
     // Length of the buffer.
     uint32_t length;
@@ -50,7 +50,7 @@ typedef struct string {
     uint32_t length;
     
     // Data of the string.
-    uint8_t data[PIPE_BUF];
+    uint8_t *data;
 } string;
 
 // Describes multiple time references.
@@ -74,7 +74,7 @@ typedef struct commandline {
     uint32_t argc;
     
     // Values for each argument.
-    string argv[MAX_COMMANDLINE_ARGUMENTS];
+    string *argv;
 } commandline;
 
 // Describes a scheduled task.
