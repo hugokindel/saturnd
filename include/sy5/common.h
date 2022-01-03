@@ -3,8 +3,13 @@
 
 #include <sy5/types.h>
 
-extern char *pipes_directory_path;
-extern char *request_pipe_path;
-extern char *reply_pipe_path;
+// The pipes directory path.
+extern char *g_pipes_path;
+
+// The request pipe file path.
+extern char *g_request_pipe_path;
+
+// The reply pipe file path.
+extern char *g_reply_pipe_path;
 
 #endif /* COMMON_H. */

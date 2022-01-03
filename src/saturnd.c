@@ -14,16 +14,11 @@
 #include <sy5/array.h>
 #include <sy5/common.h>
 #include <pthread.h>
+#include "sy5/worker.h"
+
 #ifdef __linux__
 #include <unistd.h>
 #endif
-
-typedef struct worker {
-    task task;
-    run *runs;
-    string last_stdout;
-    string last_stderr;
-} worker;
 
 static const char g_help[] =
     "usage: saturnd [OPTIONS]\n"
@@ -31,256 +26,8 @@ static const char g_help[] =
     "options:\n"
     "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
 
-static worker **g_workers = NULL;
+static uint64_t g_last_taskid = 0;
 static pthread_t *g_threads = NULL;
-static uint64_t *g_running_taskids = NULL;
-static uint64_t g_taskid = 0;
-
-static int create_worker(worker **dest, task task) {
-    worker *tmp = malloc(sizeof(worker));
-    assert(tmp);
-    
-    tmp->task = task;
-    tmp->runs = NULL;
-    tmp->last_stdout.length = 0;
-    tmp->last_stdout.data = NULL;
-    tmp->last_stderr.length = 0;
-    tmp->last_stderr.data = NULL;
-    
-    *dest = tmp;
-    
-    return 0;
-}
-
-static int free_worker(worker **worker) {
-    free_task(&(*worker)->task);
-    array_free((*worker)->runs);
-    free_string(&(*worker)->last_stdout);
-    free_string(&(*worker)->last_stderr);
-    free(*worker);
-    *worker = NULL;
-    
-    return 0;
-}
-
-static bool is_task_alive(uint64_t taskid) {
-    bool alive = false;
-    
-    for (uint64_t i = 0; i < array_size(g_running_taskids); i++) {
-        if (g_running_taskids[i] == taskid) {
-            alive = true;
-            break;
-        }
-    }
-    
-    return alive;
-}
-
-static int remove_task(uint64_t taskid) {
-    for (uint64_t i = 0; i < array_size(g_running_taskids); i++) {
-        if (g_running_taskids[i] == taskid) {
-            array_remove(g_running_taskids, i);
-            break;
-        }
-    }
-    
-    return 0;
-}
-
-static worker *get_worker(uint64_t taskid) {
-    for (uint64_t i = 0; i < array_size(g_workers); i++) {
-        if (g_workers[i]->task.taskid == taskid) {
-            return g_workers[i];
-        }
-    }
-    
-    return NULL;
-}
-
-static void *worker_thread(void *worker_arg) {
-    worker *worker_to_handle = (worker *)worker_arg;
-    timing timing = worker_to_handle->task.timing;
-    
-    uint64_t execution_time;
-    time_t timestamp;
-    struct tm *time_info;
-    
-    while (true) {
-        execution_time = time(NULL);
-        timestamp = (time_t)execution_time;
-        time_info = localtime(&timestamp);
-        
-        if (((timing.daysofweek >> time_info->tm_wday) % 2 == 0) ||
-            ((timing.hours >> time_info->tm_hour) % 2 == 0) ||
-            ((timing.minutes >> time_info->tm_min) % 2 == 0)) {
-            usleep(1000000 * (60 - time_info->tm_sec));
-            continue;
-        }
-        
-        if (!is_task_alive(worker_to_handle->task.taskid)) {
-            goto cleanup;
-        }
-        
-        int stdout_pipe[2];
-        if (pipe(stdout_pipe) == -1) {
-            log("cannot create stdout pipe!\n");
-            goto cleanup;
-        }
-        
-        int stderr_pipe[2];
-        if (pipe(stderr_pipe) == -1) {
-            log("cannot create stderr pipe!\n");
-            goto cleanup;
-        }
-        
-        pid_t fork_pid = fork();
-        
-        if (fork_pid == -1) {
-            log("cannot create task fork!\n");
-            goto cleanup;
-        } else if (fork_pid == 0) {
-            if (close(stdout_pipe[0]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (close(stderr_pipe[0]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
-                log("cannot duplicate stdout!\n");
-                goto cleanup;
-            }
-            
-            if (close(stdout_pipe[1]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (dup2(stderr_pipe[1], STDERR_FILENO) == -1) {
-                log("cannot duplicate stdout!\n");
-                goto cleanup;
-            }
-            
-            if (close(stderr_pipe[1]) == -1) {
-                log("cannot close stderr pipe!\n");
-                goto cleanup;
-            }
-            
-            char **argv = NULL;
-            
-            for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
-                char *arg = NULL;
-                if (cstring_from_string(&arg, worker_to_handle->task.commandline.argv) == -1) {
-                    log("cannot convert cstring from string!\n");
-                    goto cleanup;
-                }
-                
-                if (array_push(argv, arg) == -1) {
-                    log("cannot push arg to argv!\n");
-                    goto cleanup;
-                }
-            }
-            
-            char *null_arg = NULL;
-            if (array_push(argv, null_arg) == -1) {
-                log("cannot push arg to argv!\n");
-                goto cleanup;
-            }
-            
-            execvp(argv[0], argv);
-            perror("execve");
-            exit(EXIT_FAILURE);
-        }
-        
-        if (close(stdout_pipe[1]) == -1) {
-            log("cannot close stdout pipe!\n");
-            goto cleanup;
-        }
-        
-        if (close(stderr_pipe[1]) == -1) {
-            log("cannot close stderr pipe!\n");
-            goto cleanup;
-        }
-        
-        char buf[PIPE_BUF] = { 0 };
-        
-        char *stdout_buf = NULL;
-        while (read(stdout_pipe[0], buf, sizeof(buf)) != 0) {
-            for (uint32_t i = 0; i < PIPE_BUF; i++) {
-                array_push(stdout_buf, buf[i]);
-                
-                if (buf[i] == 0) {
-                    break;
-                }
-            }
-            
-            memset (buf, 0, sizeof(buf));
-        }
-        
-        char *stderr_buf = NULL;
-        while (read(stderr_pipe[0], buf, sizeof(buf)) != 0) {
-            for (uint32_t i = 0; i < PIPE_BUF; i++) {
-                array_push(stderr_buf, buf[i]);
-                
-                if (buf[i] == 0) {
-                    break;
-                }
-            }
-            
-            char null_char = 0;
-            array_push(stderr_buf, null_char);
-            
-            memset (buf, 0, sizeof(buf));
-        }
-        
-        if (close(stdout_pipe[0]) == -1) {
-            log("cannot close stdout pipe!\n");
-            goto cleanup;
-        }
-        
-        if (close(stderr_pipe[0]) == -1) {
-            log("cannot close stderr pipe!\n");
-            goto cleanup;
-        }
-        
-        int status;
-        if (waitpid(fork_pid, &status, 0) == -1) {
-            log("cannot waitpid()!\n");
-            goto cleanup;
-        }
-        
-        if (stdout_buf != NULL) {
-            string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
-        }
-        
-        if (stderr_buf != NULL) {
-            string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
-        }
-        
-        array_free(stdout_buf);
-        array_free(stderr_buf);
-        
-        run cur_run = {
-            .exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : 0xFFFF,
-            .time = execution_time
-        };
-        
-        array_push(worker_to_handle->runs, cur_run);
-    
-        execution_time = time(NULL);
-        timestamp = (time_t)execution_time;
-        time_info = localtime(&timestamp);
-        usleep(1000000 * (60 - time_info->tm_sec));
-    }
-    
-    cleanup:
-    free_worker(&worker_to_handle);
-    
-    return NULL;
-}
 
 int main(int argc, char *argv[]) {
     errno = 0;
@@ -297,8 +44,8 @@ int main(int argc, char *argv[]) {
             printf("%s", g_help);
             return exit_code;
         case 'p':
-            pipes_directory_path = strdup(optarg);
-            fatal_assert(pipes_directory_path != NULL, "invalid `pipes_directory_path`!\n");
+            g_pipes_path = strdup(optarg);
+            fatal_assert(g_pipes_path != NULL, "invalid `g_pipes_path`!\n");
             break;
         case '?':
             used_unexisting_option = true;
@@ -316,14 +63,14 @@ int main(int argc, char *argv[]) {
     
     tasks_directory_path = calloc(1, PATH_MAX);
     assert(tasks_directory_path);
-    assert(sprintf(tasks_directory_path, "%s../tasks/", pipes_directory_path) != -1);
+    assert(sprintf(tasks_directory_path, "%s../tasks/", g_pipes_path) != -1);
     
-    DIR *dir = opendir(pipes_directory_path);
+    DIR *dir = opendir(g_pipes_path);
     
     // Creates the pipes' directory (recursively) if it doesn't exist.
     if (!dir) {
-        fatal_assert(errno == ENOENT && mkdir_recursively(pipes_directory_path, 0777) != -1, "cannot find or create the pipes directory!\n");
-        dir = opendir(pipes_directory_path);
+        fatal_assert(errno == ENOENT && mkdir_recursively(g_pipes_path, 0777) != -1, "cannot find or create the pipes directory!\n");
+        dir = opendir(g_pipes_path);
         fatal_assert(dir, "cannot open the pipes directory!\n");
     }
     
@@ -347,7 +94,7 @@ int main(int argc, char *argv[]) {
     // If we find and can open the request pipe file for writing successfully, it means it is already being read by
     // another process, in which case we can assume a daemon is already running.
     if (request_pipe_found) {
-        int request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
+        int request_write_fd = open(g_request_pipe_path, O_WRONLY | O_NONBLOCK);
         if (request_write_fd != -1) {
             uint16_t opcode = 0;
             buffer buf = create_buffer();
@@ -359,11 +106,11 @@ int main(int argc, char *argv[]) {
         }
     } else {
         // Creates the request pipe file if it doesn't exits.
-        fatal_assert(mkfifo(request_pipe_path, 0666) != -1, "cannot create the request pipe!\n");
+        fatal_assert(mkfifo(g_request_pipe_path, 0666) != -1, "cannot create the request pipe!\n");
     }
     
     // Creates the reply pipe file if it doesn't exist.
-    fatal_assert(reply_pipe_found || mkfifo(reply_pipe_path, 0666) != -1, "cannot create the reply pipe!\n");
+    fatal_assert(reply_pipe_found || mkfifo(g_reply_pipe_path, 0666) != -1, "cannot create the reply pipe!\n");
     
     closedir(dir);
 
@@ -388,7 +135,7 @@ int main(int argc, char *argv[]) {
     
     while (true) {
         // Waits for requests to handle...
-        int request_read_fd = open(request_pipe_path, O_RDONLY);
+        int request_read_fd = open(g_request_pipe_path, O_RDONLY);
         fatal_assert(request_read_fd != -1, "cannot open request pipe!\n");
         
         // Reads a request.
@@ -428,7 +175,7 @@ int main(int argc, char *argv[]) {
             for (uint64_t i = 0; i < array_size(g_workers); i++) {
                 worker *worker = g_workers[i];
                 
-                if (is_task_alive(worker->task.taskid)) {
+                if (is_worker_running(worker->task.taskid)) {
                     array_push(tasks, worker->task);
                 }
             }
@@ -438,7 +185,7 @@ int main(int argc, char *argv[]) {
             break;
         }
         case CLIENT_REQUEST_CREATE_TASK: {
-            request.task.taskid = g_taskid++;
+            request.task.taskid = g_last_taskid++;
     
             pthread_t thread;
             array_push(g_threads, thread);
@@ -453,19 +200,19 @@ int main(int argc, char *argv[]) {
             break;
         }
         case CLIENT_REQUEST_REMOVE_TASK: {
-            if (!is_task_alive(request.taskid)) {
+            if (!is_worker_running(request.taskid)) {
                 reply.reptype = SERVER_REPLY_ERROR;
                 reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
                 break;
             }
     
-            fatal_assert(remove_task(request.taskid) != -1, "cannot remove task!\n");
+            fatal_assert(remove_worker(request.taskid) != -1, "cannot remove task!\n");
             
             reply.reptype = SERVER_REPLY_OK;
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
-            if (!is_task_alive(request.taskid)) {
+            if (!is_worker_running(request.taskid)) {
                 reply.reptype = SERVER_REPLY_ERROR;
                 reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
                 break;
@@ -477,7 +224,7 @@ int main(int argc, char *argv[]) {
         }
         case CLIENT_REQUEST_GET_STDOUT:
         case CLIENT_REQUEST_GET_STDERR: {
-            if (!is_task_alive(request.taskid)) {
+            if (!is_worker_running(request.taskid)) {
                 reply.reptype = SERVER_REPLY_ERROR;
                 reply.errcode = SERVER_REPLY_ERROR_NOT_FOUND;
                 break;
@@ -510,7 +257,7 @@ int main(int argc, char *argv[]) {
             break;
         }
         
-        int reply_write_fd = open(reply_pipe_path, O_WRONLY);
+        int reply_write_fd = open(g_reply_pipe_path, O_WRONLY);
         fatal_assert(reply_write_fd != -1, "cannot open reply pipe!\n");
         
         if (reply.reptype == SERVER_REPLY_OK) {

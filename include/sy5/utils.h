@@ -169,18 +169,32 @@ int read_run(int fd, run *run);
 // Returns `-1` in case of failure, else 0.
 int read_run_array(int fd, run **runs);
 
+// Copies a `timing`.
+// Returns `-1` in case of failure, else 0.
 int copy_timing(timing *dest, const timing *src);
 
+// Copies a `string`.
+// Returns `-1` in case of failure, else 0.
 int copy_string(string *dest, const string *src);
 
+// Copies a `commandline`.
+// Returns `-1` in case of failure, else 0.
 int copy_commandline(commandline *dest, const commandline *src);
 
+// Copies a `task`.
+// Returns `-1` in case of failure, else 0.
 int copy_task(task *dest, const task *src);
 
+// Frees a `string`.
+// Returns `-1` in case of failure, else 0.
 int free_string(string *string);
 
+// Frees a `commandline`.
+// Returns `-1` in case of failure, else 0.
 int free_commandline(commandline *commandline);
 
+// Frees a `task`.
+// Returns `-1` in case of failure, else 0.
 int free_task(task *task);
 
 #endif // UTILS_H.

@@ -3,6 +3,27 @@
 
 #include <sy5/types.h>
 
+// An array is a pointer of elements (like a C array) that is prefixed by its size (a `uint64_t`) in memory.
+//
+// Example:
+// ```
+// char **array = NULL
+// char *element1 = "Hello, ";
+// array_push(array, element1);
+// char *element2 = "World!";
+// array_push(array, element2);
+// ```
+// Here's how it would look inside the memory:
+// |2|"hello, "|"world!"|
+//  ↑ ↑         ↑
+//  │ │         └────────────────────────────────────────────────────┐
+//  │ └────────────────────┐                                         │
+//  The size of the array. │                                         │
+//                         The first element (where `array` points). │
+//                                                                   The second element.
+//
+// This array concept was inspired by stb's stretchy buffer (https://github.com/nothings/stb/blob/master/deprecated/stretchy_buffer.txt).
+
 // Returns the number of element in an array (or 0 if the array is `NULL`).
 #define array_size(array) ((array) ? *(uint64_t *)((uint8_t *)(array) - sizeof(uint64_t)) : 0)
 

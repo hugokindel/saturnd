@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
             printf("%s", g_help);
             return exit_code;
         case 'p':
-            pipes_directory_path = strdup(optarg);
-            fatal_assert(pipes_directory_path != NULL, "invalid `pipes_directory_path`!\n");
+            g_pipes_path = strdup(optarg);
+            fatal_assert(g_pipes_path != NULL, "invalid `g_pipes_path`!\n");
             break;
         case 'l':
             opt_opcode = CLIENT_REQUEST_LIST_TASKS;
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     int connection_attempts = 0;
     do {
         // Open the request pipe in writing.
-        request_write_fd = open(request_pipe_path, O_WRONLY | O_NONBLOCK);
+        request_write_fd = open(g_request_pipe_path, O_WRONLY | O_NONBLOCK);
         
         if (request_write_fd == -1) {
             if (connection_attempts == 10) {
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
     fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
     
     // Waits for a reply...
-    int reply_read_fd = open(reply_pipe_path, O_RDONLY);
+    int reply_read_fd = open(g_reply_pipe_path, O_RDONLY);
     fatal_assert(reply_read_fd != -1, "cannot open response pipe!\n");
     
     // Reads a reply.

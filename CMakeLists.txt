@@ -24,6 +24,7 @@ add_executable(saturnd
         include/sy5/types.h
         include/sy5/utils.h
         src/saturnd.c
+        src/worker.c
         src/common.c
         src/reply.c
         src/request.c

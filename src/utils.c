@@ -33,42 +33,42 @@ buffer create_buffer() {
 }
 
 int allocate_paths() {
-    if (pipes_directory_path == NULL) {
-        pipes_directory_path = calloc(1, PATH_MAX);
-        assert(pipes_directory_path);
-        assert(sprintf(pipes_directory_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
-    } else if (pipes_directory_path[strlen(pipes_directory_path) - 1] != '/') {
+    if (g_pipes_path == NULL) {
+        g_pipes_path = calloc(1, PATH_MAX);
+        assert(g_pipes_path);
+        assert(sprintf(g_pipes_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
+    } else if (g_pipes_path[strlen(g_pipes_path) - 1] != '/') {
         char *tmp = calloc(1, PATH_MAX);
         assert(tmp);
-        assert(sprintf(tmp, "%s/", pipes_directory_path) != -1);
-        pipes_directory_path = tmp;
+        assert(sprintf(tmp, "%s/", g_pipes_path) != -1);
+        g_pipes_path = tmp;
     }
     
-    request_pipe_path = calloc(1, PATH_MAX);
-    assert(request_pipe_path);
-    assert(sprintf(request_pipe_path, "%s%s", pipes_directory_path, REQUEST_PIPE_NAME) != -1);
+    g_request_pipe_path = calloc(1, PATH_MAX);
+    assert(g_request_pipe_path);
+    assert(sprintf(g_request_pipe_path, "%s%s", g_pipes_path, REQUEST_PIPE_NAME) != -1);
     
-    reply_pipe_path = calloc(1, PATH_MAX);
-    assert(reply_pipe_path);
-    assert(sprintf(reply_pipe_path, "%s%s", pipes_directory_path, REPLY_PIPE_NAME) != -1);
+    g_reply_pipe_path = calloc(1, PATH_MAX);
+    assert(g_reply_pipe_path);
+    assert(sprintf(g_reply_pipe_path, "%s%s", g_pipes_path, REPLY_PIPE_NAME) != -1);
     
     return 0;
 }
 
 void cleanup_paths() {
-    if (pipes_directory_path != NULL) {
-        free(pipes_directory_path);
-        pipes_directory_path = NULL;
+    if (g_pipes_path != NULL) {
+        free(g_pipes_path);
+        g_pipes_path = NULL;
     }
     
-    if (request_pipe_path != NULL) {
-        free(request_pipe_path);
-        request_pipe_path = NULL;
+    if (g_request_pipe_path != NULL) {
+        free(g_request_pipe_path);
+        g_request_pipe_path = NULL;
     }
     
-    if (reply_pipe_path != NULL) {
-        free(reply_pipe_path);
-        reply_pipe_path = NULL;
+    if (g_reply_pipe_path != NULL) {
+        free(g_reply_pipe_path);
+        g_reply_pipe_path = NULL;
     }
 }
 

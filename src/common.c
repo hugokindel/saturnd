@@ -1,5 +1,5 @@
 #include <sy5/common.h>
 
-char *pipes_directory_path = NULL;
-char *request_pipe_path =  NULL;
-char *reply_pipe_path = NULL;
+char *g_pipes_path = NULL;
+char *g_request_pipe_path =  NULL;
+char *g_reply_pipe_path = NULL;

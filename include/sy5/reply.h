@@ -34,20 +34,29 @@ typedef struct reply {
     uint16_t errcode;
     
     union {
+        // CLIENT_REQUEST_LIST_TASKS
         struct {
-            uint64_t taskid;
+            // Array of running tasks.
+            task *tasks;
         };
         
+        // CLIENT_REQUEST_CREATE_TASK
         struct {
-            string output;
+            // Task ID of the new task.
+            uint64_t taskid;
         };
     
+        // CLIENT_REQUEST_GET_TIMES_AND_EXITCODES
         struct {
+            // Array of previous runs.
             run *runs;
         };
-    
+        
+        // CLIENT_REQUEST_GET_STDOUT
+        // CLIENT_REQUEST_GET_STDERR
         struct {
-            task *tasks;
+            // Output string.
+            string output;
         };
     };
 } reply;

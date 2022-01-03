@@ -10,7 +10,7 @@ cassini:
 	$(CC) $(CCFLAGS) $(CFLAGS) $(COMMONSRC) src/cassini.c -DCASSINI -o cassini
 
 saturnd:
-	$(CC) $(CCFLAGS) $(CFLAGS) $(COMMONSRC) src/saturnd.c -DSATURND -DDAEMONIZE -o saturnd
+	$(CC) $(CCFLAGS) $(CFLAGS) $(COMMONSRC) src/saturnd.c src/worker.c -DSATURND -DDAEMONIZE -o saturnd
 
 distclean:
 	rm cassini saturnd
