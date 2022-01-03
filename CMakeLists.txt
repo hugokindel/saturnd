@@ -10,6 +10,7 @@ add_executable(cassini
         include/sy5/types.h
         include/sy5/utils.h
         src/cassini.c
+        src/common.c
         src/reply.c
         src/request.c
         src/utils.c)
@@ -23,6 +24,7 @@ add_executable(saturnd
         include/sy5/types.h
         include/sy5/utils.h
         src/saturnd.c
+        src/common.c
         src/reply.c
         src/request.c
         src/utils.c)

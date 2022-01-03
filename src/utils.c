@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
+#include <sy5/common.h>
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
@@ -31,38 +32,43 @@ buffer create_buffer() {
     return buffer;
 }
 
-int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path) {
-    if (*pipes_directory_path == NULL) {
-        *pipes_directory_path = calloc(1, PATH_MAX);
-        assert(*pipes_directory_path != NULL);
-        assert(sprintf(*pipes_directory_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
+int allocate_paths() {
+    if (pipes_directory_path == NULL) {
+        pipes_directory_path = calloc(1, PATH_MAX);
+        assert(pipes_directory_path);
+        assert(sprintf(pipes_directory_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
+    } else if (pipes_directory_path[strlen(pipes_directory_path) - 1] != '/') {
+        char *tmp = calloc(1, PATH_MAX);
+        assert(tmp);
+        assert(sprintf(tmp, "%s/", pipes_directory_path) != -1);
+        pipes_directory_path = tmp;
     }
     
-    *request_pipe_path = calloc(1, PATH_MAX);
-    assert(*request_pipe_path != NULL);
-    assert(sprintf(*request_pipe_path, "%s%s%s", *pipes_directory_path, (*request_pipe_path)[strlen(*request_pipe_path) - 1] == '/' ? "" : "/", REQUEST_PIPE_NAME) != -1);
+    request_pipe_path = calloc(1, PATH_MAX);
+    assert(request_pipe_path);
+    assert(sprintf(request_pipe_path, "%s%s", pipes_directory_path, REQUEST_PIPE_NAME) != -1);
     
-    *reply_pipe_path = calloc(1, PATH_MAX);
-    assert(*reply_pipe_path != NULL);
-    assert(sprintf(*reply_pipe_path, "%s%s%s", *pipes_directory_path, (*reply_pipe_path)[strlen(*reply_pipe_path) - 1] == '/' ? "" : "/", REPLY_PIPE_NAME) != -1);
+    reply_pipe_path = calloc(1, PATH_MAX);
+    assert(reply_pipe_path);
+    assert(sprintf(reply_pipe_path, "%s%s", pipes_directory_path, REPLY_PIPE_NAME) != -1);
     
     return 0;
 }
 
-void cleanup_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path) {
-    if (*pipes_directory_path != NULL) {
-        free(*pipes_directory_path);
-        *pipes_directory_path = NULL;
+void cleanup_paths() {
+    if (pipes_directory_path != NULL) {
+        free(pipes_directory_path);
+        pipes_directory_path = NULL;
     }
     
-    if (*request_pipe_path != NULL) {
-        free(*request_pipe_path);
-        *request_pipe_path = NULL;
+    if (request_pipe_path != NULL) {
+        free(request_pipe_path);
+        request_pipe_path = NULL;
     }
     
-    if (*reply_pipe_path != NULL) {
-        free(*reply_pipe_path);
-        *reply_pipe_path = NULL;
+    if (reply_pipe_path != NULL) {
+        free(reply_pipe_path);
+        reply_pipe_path = NULL;
     }
 }
 

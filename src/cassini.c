@@ -9,6 +9,7 @@
 #include <sy5/utils.h>
 #include <sy5/reply.h>
 #include <sy5/request.h>
+#include <sy5/common.h>
 #include "sy5/array.h"
 #ifdef __linux__
 #include <unistd.h>
@@ -36,9 +37,6 @@ int main(int argc, char *argv[]) {
     errno = 0;
     
     int exit_code = EXIT_SUCCESS;
-    char *pipes_directory_path = NULL;
-    char *request_pipe_path =  NULL;
-    char *reply_pipe_path = NULL;
     bool used_unexisting_option = false;
     char *opt_minutes = "*";
     char *opt_hours = "*";
@@ -112,7 +110,7 @@ int main(int argc, char *argv[]) {
         opt_opcode = CLIENT_REQUEST_LIST_TASKS;
     }
     
-    fatal_assert(allocate_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path) != -1, "cannot define pipes!\n");
+    fatal_assert(allocate_paths() != -1, "cannot define pipes!\n");
     
     int request_write_fd;
     int connection_attempts = 0;
@@ -252,7 +250,7 @@ int main(int argc, char *argv[]) {
     exit_code = get_error();
     
     cleanup:
-    cleanup_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path);
+    cleanup_paths();
     
     return exit_code;
 }

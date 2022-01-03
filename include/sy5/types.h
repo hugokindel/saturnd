@@ -10,6 +10,9 @@
 // Includes `PIPE_BUF`.
 #include <limits.h>
 
+// Includes `NULL`.
+#include <stddef.h>
+
 // The default pipes directory to use.
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
 

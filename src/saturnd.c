@@ -12,6 +12,7 @@
 #include <sy5/reply.h>
 #include <sy5/request.h>
 #include <sy5/array.h>
+#include <sy5/common.h>
 #include <pthread.h>
 #ifdef __linux__
 #include <unistd.h>
@@ -286,10 +287,8 @@ int main(int argc, char *argv[]) {
     errno = 0;
     
     int exit_code = EXIT_SUCCESS;
-    char *pipes_directory_path = NULL;
-    char *request_pipe_path =  NULL;
-    char *reply_pipe_path = NULL;
     bool used_unexisting_option = false;
+    char *tasks_directory_path = NULL;
     
     // Parse options.
     int opt;
@@ -314,7 +313,11 @@ int main(int argc, char *argv[]) {
         error("use `-h` for more informations\n");
     }
     
-    fatal_assert(allocate_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path) != -1, "cannot define pipes!\n");
+    fatal_assert(allocate_paths() != -1, "cannot define pipes!\n");
+    
+    tasks_directory_path = calloc(1, PATH_MAX);
+    assert(tasks_directory_path);
+    assert(sprintf(tasks_directory_path, "%s../tasks/", pipes_directory_path) != -1);
     
     DIR *dir = opendir(pipes_directory_path);
     
@@ -566,7 +569,8 @@ int main(int argc, char *argv[]) {
         pthread_join(g_workers[i]->thread, NULL);
     }
     array_free(g_workers);
-    cleanup_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path);
+    free(tasks_directory_path);
+    cleanup_paths();
     
     return exit_code;
 }

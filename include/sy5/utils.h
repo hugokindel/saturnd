@@ -25,10 +25,10 @@
 buffer create_buffer();
 
 // Allocate and defines every needed paths (for the pipes).
-int allocate_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path);
+int allocate_paths();
 
 // Cleanup and set to NULL every needed paths (for the pipes).
-void cleanup_paths(char **pipes_directory_path, char **request_pipe_path, char **reply_pipe_path);
+void cleanup_paths();
 
 // Checks `errno` to call `perror` if needed and returns `EXIT_FAILURE`.
 int get_error();
