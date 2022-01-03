@@ -10,7 +10,6 @@
 #include <sy5/reply.h>
 #include <sy5/request.h>
 #include "sy5/array.h"
-
 #ifdef __linux__
 #include <unistd.h>
 #endif
