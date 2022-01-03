@@ -5,15 +5,15 @@
 #include <getopt.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/reply.h>
-#include <sy5/request.h>
 #include <sy5/array.h>
+#include <sy5/request.h>
 #include <sy5/common.h>
-#include <pthread.h>
-#include "sy5/worker.h"
+#include <sy5/worker.h>
 #ifdef __linux__
 #include <unistd.h>
 #endif
