@@ -8,7 +8,6 @@
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/array.h>
-#include <errno.h>
 
 worker **g_workers = NULL;
 uint64_t *g_running_taskids = NULL;
