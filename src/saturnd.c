@@ -1,4 +1,3 @@
-#include <time.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -15,7 +14,6 @@
 #include <sy5/common.h>
 #include <pthread.h>
 #include "sy5/worker.h"
-
 #ifdef __linux__
 #include <unistd.h>
 #endif
