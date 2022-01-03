@@ -20,7 +20,6 @@
 
 typedef struct worker {
     task task;
-    pthread_t thread;
     run *runs;
     string last_stdout;
     string last_stderr;
@@ -33,6 +32,7 @@ static const char g_help[] =
     "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
 
 static worker **g_workers = NULL;
+static pthread_t *g_threads = NULL;
 static uint64_t *g_running_taskids = NULL;
 static uint64_t g_taskid = 0;
 
@@ -41,7 +41,6 @@ static int create_worker(worker **dest, task task) {
     assert(tmp);
     
     tmp->task = task;
-    tmp->thread = 0;
     tmp->runs = NULL;
     tmp->last_stdout.length = 0;
     tmp->last_stdout.data = NULL;
@@ -436,21 +435,21 @@ int main(int argc, char *argv[]) {
     
             reply.tasks = tasks;
             reply.reptype = SERVER_REPLY_OK;
-            
             break;
         }
         case CLIENT_REQUEST_CREATE_TASK: {
             request.task.taskid = g_taskid++;
-            
+    
+            pthread_t thread;
+            array_push(g_threads, thread);
             worker *new_worker = NULL;
             fatal_assert(create_worker(&new_worker, request.task) != -1, "cannot create worker!\n");
             fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
             fatal_assert(array_push(g_running_taskids, request.task.taskid) != -1, "cannot push to `g_running_taskids`!\n");
-            fatal_assert(pthread_create(&(array_last(g_workers)->thread), NULL, worker_thread, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+            fatal_assert(pthread_create(&array_last(g_threads), NULL, worker_thread, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     
             reply.taskid = request.task.taskid;
             reply.reptype = SERVER_REPLY_OK;
-            
             break;
         }
         case CLIENT_REQUEST_REMOVE_TASK: {
@@ -463,7 +462,6 @@ int main(int argc, char *argv[]) {
             fatal_assert(remove_task(request.taskid) != -1, "cannot remove task!\n");
             
             reply.reptype = SERVER_REPLY_OK;
-            
             break;
         }
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
@@ -475,7 +473,6 @@ int main(int argc, char *argv[]) {
     
             reply.runs = get_worker(request.taskid)->runs;
             reply.reptype = SERVER_REPLY_OK;
-            
             break;
         }
         case CLIENT_REQUEST_GET_STDOUT:
@@ -502,9 +499,11 @@ int main(int argc, char *argv[]) {
             }
             
             reply.reptype = SERVER_REPLY_OK;
-            
             break;
         }
+        case CLIENT_REQUEST_TERMINATE:
+            reply.reptype = SERVER_REPLY_OK;
+            break;
         default:
             reply.reptype = SERVER_REPLY_ERROR;
             reply.errcode = 0;
@@ -565,8 +564,9 @@ int main(int argc, char *argv[]) {
     exit_code = get_error();
     
     cleanup:
-    for (uint64_t i = 0; i < array_size(g_workers); i++) {
-        pthread_join(g_workers[i]->thread, NULL);
+    array_free(g_running_taskids);
+    for (uint64_t i = 0; i < array_size(g_threads); i++) {
+        pthread_join(g_threads[i], NULL);
     }
     array_free(g_workers);
     free(tasks_directory_path);
