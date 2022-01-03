@@ -562,6 +562,9 @@ int main(int argc, char *argv[]) {
     exit_code = get_error();
     
     cleanup:
+    for (uint64_t i = 0; i < array_size(g_workers); i++) {
+        pthread_join(g_workers[i]->thread, NULL);
+    }
     array_free(g_workers);
     cleanup_paths(&pipes_directory_path, &request_pipe_path, &reply_pipe_path);
     
