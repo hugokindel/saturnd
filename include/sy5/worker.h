@@ -36,6 +36,6 @@ int remove_worker(uint64_t taskid);
 worker *get_worker(uint64_t taskid);
 
 // Code for the worker's thread.
-void *worker_thread(void *worker_arg);
+void *worker_main(void *worker_arg);
 
 #endif /* WORKER_H. */

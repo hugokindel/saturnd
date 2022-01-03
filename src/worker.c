@@ -8,6 +8,7 @@
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/array.h>
+#include <errno.h>
 
 worker **g_workers = NULL;
 uint64_t *g_running_taskids = NULL;
@@ -73,7 +74,7 @@ worker *get_worker(uint64_t taskid) {
     return NULL;
 }
 
-void *worker_thread(void *worker_arg) {
+void *worker_main(void *worker_arg) {
     worker *worker_to_handle = (worker *)worker_arg;
     timing timing = worker_to_handle->task.timing;
     
@@ -85,7 +86,6 @@ void *worker_thread(void *worker_arg) {
         execution_time = time(NULL);
         timestamp = (time_t)execution_time;
         time_info = localtime(&timestamp);
-        
         if (((timing.daysofweek >> time_info->tm_wday) % 2 == 0) ||
             ((timing.hours >> time_info->tm_hour) % 2 == 0) ||
             ((timing.minutes >> time_info->tm_min) % 2 == 0)) {
@@ -94,92 +94,41 @@ void *worker_thread(void *worker_arg) {
         }
         
         if (!is_worker_running(worker_to_handle->task.taskid)) {
-            goto cleanup;
+            break;
         }
         
         int stdout_pipe[2];
-        if (pipe(stdout_pipe) == -1) {
-            log("cannot create stdout pipe!\n");
-            goto cleanup;
-        }
-        
         int stderr_pipe[2];
-        if (pipe(stderr_pipe) == -1) {
-            log("cannot create stderr pipe!\n");
-            goto cleanup;
-        }
+        fatal_assert(pipe(stdout_pipe) != -1, "cannot create stdout pipe!\n");
+        fatal_assert(pipe(stderr_pipe) != -1, "cannot create stdout pipe!\n");
         
         pid_t fork_pid = fork();
+        fatal_assert(fork_pid != -1, "cannot create task fork!\n");
         
-        if (fork_pid == -1) {
-            log("cannot create task fork!\n");
-            goto cleanup;
-        } else if (fork_pid == 0) {
-            if (close(stdout_pipe[0]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (close(stderr_pipe[0]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
-                log("cannot duplicate stdout!\n");
-                goto cleanup;
-            }
-            
-            if (close(stdout_pipe[1]) == -1) {
-                log("cannot close stdout pipe!\n");
-                goto cleanup;
-            }
-            
-            if (dup2(stderr_pipe[1], STDERR_FILENO) == -1) {
-                log("cannot duplicate stdout!\n");
-                goto cleanup;
-            }
-            
-            if (close(stderr_pipe[1]) == -1) {
-                log("cannot close stderr pipe!\n");
-                goto cleanup;
-            }
+        if (fork_pid == 0) {
+            fatal_assert(close(stdout_pipe[0]) != -1, "cannot close stdout pipe!\n");
+            fatal_assert(close(stderr_pipe[0]) != -1, "cannot close stderr pipe!\n");
+            fatal_assert(dup2(stdout_pipe[1], STDOUT_FILENO) != -1, "cannot duplicate stdout!\n");
+            fatal_assert(dup2(stderr_pipe[1], STDERR_FILENO) != -1, "cannot duplicate stderr!\n");
+            fatal_assert(close(stdout_pipe[1]) != -1, "cannot close stdout pipe!\n");
+            fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
             
             char **argv = NULL;
-            
             for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
                 char *arg = NULL;
-                if (cstring_from_string(&arg, worker_to_handle->task.commandline.argv) == -1) {
-                    log("cannot convert cstring from string!\n");
-                    goto cleanup;
-                }
-                
-                if (array_push(argv, arg) == -1) {
-                    log("cannot push arg to argv!\n");
-                    goto cleanup;
-                }
+                fatal_assert(cstring_from_string(&arg, worker_to_handle->task.commandline.argv) != -1, "cannot convert cstring from string!\n");
+                fatal_assert(array_push(argv, arg) != -1, "cannot push arg to argv!\n");
             }
-            
             char *null_arg = NULL;
-            if (array_push(argv, null_arg) == -1) {
-                log("cannot push arg to argv!\n");
-                goto cleanup;
-            }
+            fatal_assert(array_push(argv, null_arg) != -1, "cannot push arg to argv!\n");
             
             execvp(argv[0], argv);
             perror("execve");
             exit(EXIT_FAILURE);
         }
         
-        if (close(stdout_pipe[1]) == -1) {
-            log("cannot close stdout pipe!\n");
-            goto cleanup;
-        }
-        
-        if (close(stderr_pipe[1]) == -1) {
-            log("cannot close stderr pipe!\n");
-            goto cleanup;
-        }
+        fatal_assert(close(stdout_pipe[1]) != -1, "cannot close stdout pipe!\n");
+        fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
         
         char buf[PIPE_BUF] = { 0 };
         
@@ -211,33 +160,22 @@ void *worker_thread(void *worker_arg) {
             
             memset (buf, 0, sizeof(buf));
         }
-        
-        if (close(stdout_pipe[0]) == -1) {
-            log("cannot close stdout pipe!\n");
-            goto cleanup;
-        }
-        
-        if (close(stderr_pipe[0]) == -1) {
-            log("cannot close stderr pipe!\n");
-            goto cleanup;
-        }
+    
+        fatal_assert(close(stdout_pipe[0]) != -1, "cannot close stdout pipe!\n");
+        fatal_assert(close(stderr_pipe[0]) != -1, "cannot close stderr pipe!\n");
         
         int status;
-        if (waitpid(fork_pid, &status, 0) == -1) {
-            log("cannot waitpid()!\n");
-            goto cleanup;
-        }
+        fatal_assert(waitpid(fork_pid, &status, 0) != -1, "cannot waitpid for fork!\n");
         
         if (stdout_buf != NULL) {
             string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
+            array_free(stdout_buf);
         }
         
         if (stderr_buf != NULL) {
             string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
+            array_free(stderr_buf);
         }
-        
-        array_free(stdout_buf);
-        array_free(stderr_buf);
         
         run cur_run = {
             .exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : 0xFFFF,
@@ -251,6 +189,11 @@ void *worker_thread(void *worker_arg) {
         time_info = localtime(&timestamp);
         usleep(1000000 * (60 - time_info->tm_sec));
     }
+    
+    goto cleanup;
+    
+    error:
+    log("error in worker thread!\n");
     
     cleanup:
     free_worker(&worker_to_handle);

@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
             fatal_assert(create_worker(&new_worker, request.task) != -1, "cannot create worker!\n");
             fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
             fatal_assert(array_push(g_running_taskids, request.task.taskid) != -1, "cannot push to `g_running_taskids`!\n");
-            fatal_assert(pthread_create(&array_last(g_threads), NULL, worker_thread, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+            fatal_assert(pthread_create(&array_last(g_threads), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     
             reply.taskid = request.task.taskid;
             reply.reptype = SERVER_REPLY_OK;
