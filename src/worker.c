@@ -8,9 +8,16 @@
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/array.h>
+#include <pthread.h>
+#include <sys/time.h>
 
 worker **g_workers = NULL;
 uint64_t *g_running_taskids = NULL;
+
+typedef struct worker_cleanup_handle {
+    worker *worker;
+    pthread_mutex_t *mutex;
+} worker_cleanup_handle;
 
 int create_worker(worker **dest, task task) {
     worker *tmp = malloc(sizeof(worker));
@@ -73,23 +80,43 @@ worker *get_worker(uint64_t taskid) {
     return NULL;
 }
 
+void cleanup_worker(void *cleanup_handle_ptr) {
+    worker_cleanup_handle *cleanup_handle = cleanup_handle_ptr;
+    pthread_mutex_unlock(cleanup_handle->mutex);
+    free_worker(&cleanup_handle->worker);
+    
+    log("worker thread shutting down...\n");
+}
+
+void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
+    uint64_t execution_time = time(NULL);
+    time_t timestamp = (time_t)execution_time;
+    struct tm *time_info = localtime(&timestamp);
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    struct timespec max_wait = {now.tv_sec + 1 * (60 - time_info->tm_sec), 0};
+    pthread_mutex_lock(lock);
+    pthread_cond_timedwait(cond, lock, &max_wait);
+    pthread_mutex_unlock(lock);
+}
+
 void *worker_main(void *worker_arg) {
     worker *worker_to_handle = (worker *)worker_arg;
     timing timing = worker_to_handle->task.timing;
+    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
     
-    uint64_t execution_time;
-    time_t timestamp;
-    struct tm *time_info;
+    worker_cleanup_handle cleanup_handle = { .worker = worker_to_handle, .mutex = &lock };
+    pthread_cleanup_push(cleanup_worker, &cleanup_handle)
     
     while (true) {
-        execution_time = time(NULL);
-        timestamp = (time_t)execution_time;
-        time_info = localtime(&timestamp);
+        uint64_t execution_time = time(NULL);
+        time_t timestamp = (time_t)execution_time;
+        struct tm *time_info = localtime(&timestamp);
         if (((timing.daysofweek >> time_info->tm_wday) % 2 == 0) ||
             ((timing.hours >> time_info->tm_hour) % 2 == 0) ||
             ((timing.minutes >> time_info->tm_min) % 2 == 0)) {
-            usleep(1000000 * (60 - time_info->tm_sec));
-            continue;
+            sleep_worker(&lock, &cond);
         }
         
         if (!is_worker_running(worker_to_handle->task.taskid)) {
@@ -182,11 +209,8 @@ void *worker_main(void *worker_arg) {
         };
         
         array_push(worker_to_handle->runs, cur_run);
-        
-        execution_time = time(NULL);
-        timestamp = (time_t)execution_time;
-        time_info = localtime(&timestamp);
-        usleep(1000000 * (60 - time_info->tm_sec));
+    
+        sleep_worker(&lock, &cond);
     }
     
     goto cleanup;
@@ -195,7 +219,7 @@ void *worker_main(void *worker_arg) {
     log("error in worker thread!\n");
     
     cleanup:
-    free_worker(&worker_to_handle);
+    pthread_cleanup_pop(1)
     
     return NULL;
 }

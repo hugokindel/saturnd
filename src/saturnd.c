@@ -24,8 +24,13 @@ static const char g_help[] =
     "options:\n"
     "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
 
+typedef struct thread_handle {
+    pthread_t pthread;
+    uint64_t taskid;
+} thread_handle;
+
 static uint64_t g_last_taskid = 0;
-static pthread_t *g_threads = NULL;
+static thread_handle *g_threads = NULL;
 
 int main(int argc, char *argv[]) {
     errno = 0;
@@ -185,13 +190,13 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_CREATE_TASK: {
             request.task.taskid = g_last_taskid++;
     
-            pthread_t thread;
-            array_push(g_threads, thread);
+            thread_handle thread_handle = { .taskid = request.task.taskid };
+            array_push(g_threads, thread_handle);
             worker *new_worker = NULL;
             fatal_assert(create_worker(&new_worker, request.task) != -1, "cannot create worker!\n");
             fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
             fatal_assert(array_push(g_running_taskids, request.task.taskid) != -1, "cannot push to `g_running_taskids`!\n");
-            fatal_assert(pthread_create(&array_last(g_threads), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+            fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     
             reply.taskid = request.task.taskid;
             reply.reptype = SERVER_REPLY_OK;
@@ -205,6 +210,12 @@ int main(int argc, char *argv[]) {
             }
     
             fatal_assert(remove_worker(request.taskid) != -1, "cannot remove task!\n");
+            
+            for (uint64_t i = 0; i < array_size(g_workers); i++) {
+                if (g_threads[i].taskid == request.taskid) {
+                    pthread_cancel(g_threads[i].pthread);
+                }
+            }
             
             reply.reptype = SERVER_REPLY_OK;
             break;
@@ -311,7 +322,8 @@ int main(int argc, char *argv[]) {
     cleanup:
     array_free(g_running_taskids);
     for (uint64_t i = 0; i < array_size(g_threads); i++) {
-        pthread_join(g_threads[i], NULL);
+        pthread_cancel(g_threads[i].pthread);
+        pthread_join(g_threads[i].pthread, NULL);
     }
     array_free(g_workers);
     free(tasks_directory_path);
