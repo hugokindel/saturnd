@@ -81,7 +81,7 @@ int get_error() {
     return EXIT_FAILURE;
 }
 
-int create_folder(const char *path) {
+int create_directory(const char *path) {
     DIR *task_dir = opendir(path);
     
     if (!task_dir) {
@@ -569,36 +569,6 @@ int read_run_array(int fd, run **runs) {
     }
     
     return (int)nbruns;
-}
-
-int copy_timing(timing *dest, const timing *src) {
-    dest->daysofweek = src->daysofweek;
-    dest->hours = src->hours;
-    dest->minutes = src->minutes;
-    
-    return 0;
-}
-
-int copy_string(string *dest, const string *src) {
-    dest->length = src->length;
-    dest->data = malloc(dest->length);
-    assert(dest->data);
-    for (uint32_t i = 0; i < dest->length; i++) {
-        dest->data[i] = src->data[i];
-    }
-    
-    return 0;
-}
-
-int copy_commandline(commandline *dest, const commandline *src) {
-    dest->argc = src->argc;
-    dest->argv = malloc(dest->argc * sizeof(string));
-    assert(dest->argv);
-    for (uint32_t i = 0; i < dest->argc; i++) {
-        assert(copy_string(&dest->argv[i], &src->argv[i]) != -1);
-    }
-    
-    return 0;
 }
 
 int free_string(string *string) {

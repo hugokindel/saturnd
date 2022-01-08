@@ -33,8 +33,12 @@ void cleanup_paths();
 // Checks `errno` to call `perror` if needed and returns `EXIT_FAILURE`.
 int get_error();
 
-int create_folder(const char *path);
+// Creates a folder a `path` if it doesn't exist.
+// Returns `-1` in case of failure, else 0.
+int create_directory(const char *path);
 
+// Opens a file named `filename` at `path` with the given `oflags`.
+// Returns `-1` in case of failure, else the file descriptor.
 int open_file(int *dest, const char *path, const char *filename, int oflags);
 
 // Creates a directory by calling `mkdir` recursively on a path for every missing parts.
@@ -172,18 +176,6 @@ int read_run(int fd, run *run);
 // Reads an `run[]` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
 int read_run_array(int fd, run **runs);
-
-// Copies a `timing`.
-// Returns `-1` in case of failure, else 0.
-int copy_timing(timing *dest, const timing *src);
-
-// Copies a `string`.
-// Returns `-1` in case of failure, else 0.
-int copy_string(string *dest, const string *src);
-
-// Copies a `commandline`.
-// Returns `-1` in case of failure, else 0.
-int copy_commandline(commandline *dest, const commandline *src);
 
 // Frees a `string`.
 // Returns `-1` in case of failure, else 0.

@@ -40,7 +40,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
 #endif
     assert(task_path != NULL);
     tmp->dir_path = task_path;
-    assert(create_folder(tmp->dir_path) != -1);
+    assert(create_directory(tmp->dir_path) != -1);
     
     assert(open_file(&tmp->task_file_fd, tmp->dir_path, "task", O_RDWR | O_CREAT) != -1);
     off_t pos = lseek(tmp->task_file_fd, 0L, SEEK_END);
