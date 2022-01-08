@@ -4,17 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/errno.h>
+#include <dirent.h>
 #include <sys/stat.h>
+#include <sys/file.h>
+#include <sys/errno.h>
+#include <sys/syslimits.h>
+#include <sy5/array.h>
 #include <sy5/common.h>
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
-#include <sys/syslimits.h>
-#include <dirent.h>
-#include <sys/file.h>
-#include "sy5/array.h"
-
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define htobe64(x) OSSwapHostToBigInt64(x)
