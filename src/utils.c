@@ -1,4 +1,5 @@
 #include <sy5/utils.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
+
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define htobe64(x) OSSwapHostToBigInt64(x)
@@ -37,7 +39,7 @@ int allocate_paths() {
     if (g_pipes_path == NULL) {
         g_pipes_path = calloc(1, PATH_MAX);
         assert(g_pipes_path);
-        assert(sprintf(g_pipes_path, "/tmp/%s/saturnd/pipes/", getlogin()) != -1);
+        assert(sprintf(g_pipes_path, "/tmp/%s/saturnd/pipes/", getpwuid(getuid())->pw_name) != -1);
     } else if (g_pipes_path[strlen(g_pipes_path) - 1] != '/') {
         char *tmp = calloc(1, PATH_MAX);
         assert(tmp);
