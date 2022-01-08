@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     errno = 0;
     
     int exit_code = EXIT_SUCCESS;
-    bool used_unexisting_option = false;
+    int used_unexisting_option = 0;
     char *opt_minutes = "*";
     char *opt_hours = "*";
     char *opt_daysofweek = "*";
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
             fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0', "invalid taskid!\n");
             break;
         case '?':
-            used_unexisting_option = true;
+            used_unexisting_option = 1;
             break;
         default:
             fprintf(stderr, "unimplemented option: %s\n", optarg);
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
         } else {
             break;
         }
-    } while (true);
+    } while (1);
     
     log2("sending to daemon `%s`.\n", request_item_names()[opt_opcode]);
     
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         task task;
         fatal_assert(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1, "cannot parse `timing`!\n");
         fatal_assert(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1, "cannot parse `commandline`!\n");
-        fatal_assert(write_task(&buf, &task, false) != -1, "cannot write `task` to request!\n");
+        fatal_assert(write_task(&buf, &task, 0) != -1, "cannot write `task` to request!\n");
         free_task(&task);
         break;
     }

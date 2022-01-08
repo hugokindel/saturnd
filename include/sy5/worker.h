@@ -31,7 +31,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
 int free_worker(worker **worker);
 
 // Checks if a worker is running.
-bool is_worker_running(uint64_t taskid);
+int is_worker_running(uint64_t taskid);
 
 // Removes a running worker.
 // Returns `-1` in case of failure, else 0.

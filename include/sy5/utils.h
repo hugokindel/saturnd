@@ -119,7 +119,7 @@ int write_commandline(buffer *buf, const commandline *commandline);
 
 // Writes an `task` in big endian to a `data`.
 // Returns `-1` in case of failure, else 0.
-int write_task(buffer *buf, const task *task, bool write_taskid);
+int write_task(buffer *buf, const task *task, int write_taskid);
 
 // Writes an `task[]` (from host byte order to big endian order) to a `data`.
 // Returns `-1` in case of failure, else 0.
@@ -163,7 +163,7 @@ int read_commandline(int fd, commandline *commandline);
 
 // Reads an `task` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.
-int read_task(int fd, task *task, bool read_taskid);
+int read_task(int fd, task *task, int read_taskid);
 
 // Reads an `task[]` (from big endian order to host byte order) to a file descriptor.
 // Returns `-1` in case of failure, else 0.

@@ -1,4 +1,4 @@
-#include <sy5/common.h>
+#include <stddef.h>
 
 char *g_pipes_path = NULL;
 char *g_request_pipe_path =  NULL;

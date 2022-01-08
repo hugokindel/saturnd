@@ -1,17 +1,8 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-// Includes the `bool` type.
-#include <stdbool.h>
-
 // Includes integer types (`uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t`, `int64_t`).
 #include <stdint.h>
-
-// Includes `PIPE_BUF`.
-#include <limits.h>
-
-// Includes `NULL`.
-#include <stddef.h>
 
 // The default pipes directory to use.
 #define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"

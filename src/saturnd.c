@@ -5,6 +5,7 @@
 #include <getopt.h>
 #include <syslog.h>
 #include <dirent.h>
+#include <limits.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
@@ -36,7 +37,7 @@ int main(int argc, char *argv[]) {
     errno = 0;
     
     int exit_code = EXIT_SUCCESS;
-    bool used_unexisting_option = false;
+    int used_unexisting_option = 0;
     char *tasks_directory_path = NULL;
     
     // Parse options.
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]) {
             fatal_assert(g_pipes_path != NULL, "invalid `g_pipes_path`!\n");
             break;
         case '?':
-            used_unexisting_option = true;
+            used_unexisting_option = 1;
             break;
         default:
             fprintf(stderr, "unimplemented option: %s\n", optarg);
@@ -172,7 +173,7 @@ int main(int argc, char *argv[]) {
     
     log("daemon started.\n");
     
-    while (true) {
+    while (1) {
         // Waits for requests to handle...
         int request_read_fd = open(g_request_pipe_path, O_RDONLY);
         fatal_assert(request_read_fd != -1, "cannot open request pipe!\n");
@@ -191,7 +192,7 @@ int main(int argc, char *argv[]) {
         
         switch (request.opcode) {
         case CLIENT_REQUEST_CREATE_TASK:
-            fatal_assert(read_task(request_read_fd, &request.task, false) != -1, "cannot read `task` from request!\n");
+            fatal_assert(read_task(request_read_fd, &request.task, 0) != -1, "cannot read `task` from request!\n");
             break;
         case CLIENT_REQUEST_REMOVE_TASK:
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:

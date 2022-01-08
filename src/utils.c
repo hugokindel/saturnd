@@ -427,7 +427,7 @@ int write_commandline(buffer *buf, const commandline *commandline) {
     return 0;
 }
 
-int write_task(buffer *buf, const task *task, bool write_taskid) {
+int write_task(buffer *buf, const task *task, int write_taskid) {
     if (write_taskid) {
         assert(write_uint64(buf, &task->taskid) != -1);
     }
@@ -443,7 +443,7 @@ int write_task_array(buffer *buf, const task *tasks) {
     assert(write_uint32(buf, &size) != -1);
     
     for (uint32_t i = 0; i < size; i++) {
-        assert(write_task(buf, &tasks[i], true) != -1);
+        assert(write_task(buf, &tasks[i], 1) != -1);
     }
     
     return 0;
@@ -529,7 +529,7 @@ int read_commandline(int fd, commandline *commandline) {
     return 0;
 }
 
-int read_task(int fd, task *task, bool read_taskid) {
+int read_task(int fd, task *task, int read_taskid) {
     if (read_taskid) {
         assert(read_uint64(fd, &task->taskid) != -1);
     }
@@ -546,7 +546,7 @@ int read_task_array(int fd, task **tasks) {
     
     for (uint32_t i = 0; i < nbtasks; i++) {
         task task;
-        assert(read_task(fd, &task, true) != -1);
+        assert(read_task(fd, &task, 1) != -1);
         array_push(*tasks, task);
     }
     

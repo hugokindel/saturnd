@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <limits.h>
 #include <syslog.h>
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
@@ -52,10 +53,10 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
     if (task != NULL) {
         assert(ftruncate(tmp->task_file_fd, 0) != -1);
         buffer buf = create_buffer();
-        assert(write_task(&buf, task, true) != -1);
+        assert(write_task(&buf, task, 1) != -1);
         assert(write_buffer(tmp->task_file_fd, &buf) != -1);
     } else {
-        assert(read_task(tmp->task_file_fd, &tmp->task, true) != -1);
+        assert(read_task(tmp->task_file_fd, &tmp->task, 1) != -1);
     }
     
     // Opens and read the `runs` file.
@@ -106,12 +107,12 @@ int free_worker(worker **worker) {
     return 0;
 }
 
-bool is_worker_running(uint64_t taskid) {
-    bool alive = false;
+int is_worker_running(uint64_t taskid) {
+    int alive = 0;
     
     for (uint64_t i = 0; i < array_size(g_running_taskids); i++) {
         if (g_running_taskids[i] == taskid) {
-            alive = true;
+            alive = 1;
             break;
         }
     }
@@ -193,7 +194,7 @@ void *worker_main(void *worker_arg) {
         }
     }
     
-    while (true) {
+    while (1) {
         // Checks if the task has to run this minute, if not, sleep until the next minute.
         uint64_t execution_time = time(NULL);
         time_t timestamp = (time_t)execution_time;

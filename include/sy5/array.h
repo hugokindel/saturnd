@@ -33,7 +33,7 @@
 // Returns the last element in an array (assumes that the array has at least 1 element).
 #define array_last(array) ((array)[array_size(array) - 1])
 
-// Returns `true` if the array is empty or `NULL`.
+// Returns `1` if the array is empty or `NULL`.
 #define array_empty(array) (array_size(array) == 0)
 
 // Pushes an element in the array (which can be `NULL` if empty).
