@@ -154,13 +154,13 @@ void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
     struct tm *time_info = localtime(&timestamp);
     struct timeval now;
     gettimeofday(&now, NULL);
-    struct timespec max_wait = {now.tv_sec + 1 * (60 - time_info->tm_sec), 0};
+    struct timespec sleep_duration = {now.tv_sec + 1 * (60 - time_info->tm_sec), 0};
     
     // Make the thread sleep until the next minute approximativaly.
     // The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
     // saturnd is exiting).
     pthread_mutex_lock(lock);
-    pthread_cond_timedwait(cond, lock, &max_wait);
+    pthread_cond_timedwait(cond, lock, &sleep_duration);
     pthread_mutex_unlock(lock);
 }
 

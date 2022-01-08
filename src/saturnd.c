@@ -136,10 +136,12 @@ int main(int argc, char *argv[]) {
             continue;
         }
         
+        // Calculate the last taskid used based on directories names.
         if (taskid >= g_last_taskid) {
             g_last_taskid = taskid + 1;
         }
     
+        // Loads any existing task and create its thread.
         thread_handle thread_handle = { .taskid = taskid };
         array_push(g_threads, thread_handle);
         worker *new_worker = NULL;
