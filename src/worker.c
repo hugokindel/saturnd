@@ -40,8 +40,11 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
 #endif
     assert(task_path != NULL);
     tmp->dir_path = task_path;
+    
+    // Creates the task's directory if it doesn't exist.
     assert(create_directory(tmp->dir_path) != -1);
     
+    // Opens (or create) and read (or write) the `task` file.
     assert(open_file(&tmp->task_file_fd, tmp->dir_path, "task", O_RDWR | O_CREAT) != -1);
     off_t pos = lseek(tmp->task_file_fd, 0L, SEEK_END);
     assert(pos != -1 && (pos != 0 || task != NULL));
@@ -55,6 +58,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
         assert(read_task(tmp->task_file_fd, &tmp->task, true) != -1);
     }
     
+    // Opens and read the `runs` file.
     assert(open_file(&tmp->runs_file_fd, tmp->dir_path, "runs", O_RDWR | O_CREAT) != -1);
     pos = lseek(tmp->runs_file_fd, 0L, SEEK_END);
     assert(pos != -1);
@@ -63,6 +67,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
         assert(read_run_array(tmp->runs_file_fd, &tmp->runs) != -1);
     }
     
+    // Opens and read the `last_stdout` file.
     assert(open_file(&tmp->last_stdout_file_fd, tmp->dir_path, "last_stdout", O_RDWR | O_CREAT) != -1);
     pos = lseek(tmp->last_stdout_file_fd, 0L, SEEK_END);
     assert(pos != -1);
@@ -71,6 +76,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
         assert(read_string(tmp->last_stdout_file_fd, &tmp->last_stdout) != -1);
     }
     
+    // Opens and read the `last_stderr` file.
     assert(open_file(&tmp->last_stderr_file_fd, tmp->dir_path, "last_stderr", O_RDWR | O_CREAT) != -1);
     pos = lseek(tmp->last_stderr_file_fd, 0L, SEEK_END);
     assert(pos != -1);
@@ -149,6 +155,10 @@ void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
     struct timeval now;
     gettimeofday(&now, NULL);
     struct timespec max_wait = {now.tv_sec + 1 * (60 - time_info->tm_sec), 0};
+    
+    // Make the thread sleep until the next minute approximativaly.
+    // The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
+    // saturnd is exiting).
     pthread_mutex_lock(lock);
     pthread_cond_timedwait(cond, lock, &max_wait);
     pthread_mutex_unlock(lock);
@@ -159,15 +169,17 @@ void *worker_main(void *worker_arg) {
     timing timing = worker_to_handle->task.timing;
     pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-    
     worker_cleanup_handle cleanup_handle = { .worker = worker_to_handle, .mutex = &lock };
+    
+    // Push the cleanup handler (that will happen once the thread is going to end).
     pthread_cleanup_push(cleanup_worker, &cleanup_handle)
     
+    // If there are already any `runs` (meaning we read this task from file), check if it has already been run this
+    // exact minute. If it did, sleep until the next minute.
     if (array_size(worker_to_handle->runs) > 0) {
         uint64_t execution_time_last_run = array_last(worker_to_handle->runs).time;
         time_t timestamp_last_run = (time_t)execution_time_last_run;
         struct tm *time_info_last_run = localtime(&timestamp_last_run);
-        
         uint64_t execution_time_now = time(NULL);
         time_t timestamp_now = (time_t)execution_time_now;
         struct tm *time_info_now = localtime(&timestamp_now);
@@ -182,6 +194,7 @@ void *worker_main(void *worker_arg) {
     }
     
     while (true) {
+        // Checks if the task has to run this minute, if not, sleep until the next minute.
         uint64_t execution_time = time(NULL);
         time_t timestamp = (time_t)execution_time;
         struct tm *time_info = localtime(&timestamp);
@@ -195,6 +208,7 @@ void *worker_main(void *worker_arg) {
             break;
         }
         
+        // Create self-pipes to extract `stdout` and `stderr` from the upcoming `exec` call.
         int stdout_pipe[2];
         int stderr_pipe[2];
         fatal_assert(pipe(stdout_pipe) != -1, "cannot create stdout pipe!\n");
@@ -211,6 +225,7 @@ void *worker_main(void *worker_arg) {
             fatal_assert(close(stdout_pipe[1]) != -1, "cannot close stdout pipe!\n");
             fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
             
+            // Creates the `argv` array for the upcoming `exec` call.
             char **argv = NULL;
             for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
                 char *arg = NULL;
@@ -220,6 +235,7 @@ void *worker_main(void *worker_arg) {
             char *null_arg = NULL;
             fatal_assert(array_push(argv, null_arg) != -1, "cannot push arg to argv!\n");
             
+            // Execute the command in the fork.
             execvp(argv[0], argv);
             perror("execve");
             exit(EXIT_FAILURE);
@@ -230,6 +246,7 @@ void *worker_main(void *worker_arg) {
         
         char buf[PIPE_BUF] = { 0 };
         
+        // Read the last stdout in a buffer.
         char *stdout_buf = NULL;
         while (read(stdout_pipe[0], buf, sizeof(buf)) != 0) {
             for (uint32_t i = 0; i < PIPE_BUF; i++) {
@@ -243,6 +260,7 @@ void *worker_main(void *worker_arg) {
             memset (buf, 0, sizeof(buf));
         }
         
+        // Read the last stderr in a buffer.
         char *stderr_buf = NULL;
         while (read(stderr_pipe[0], buf, sizeof(buf)) != 0) {
             for (uint32_t i = 0; i < PIPE_BUF; i++) {
@@ -266,9 +284,11 @@ void *worker_main(void *worker_arg) {
         fatal_assert(waitpid(fork_pid, &status, 0) != -1, "cannot waitpid for fork!\n");
         
         if (stdout_buf != NULL) {
+            // Saves the last stdout.
             string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
             array_free(stdout_buf);
     
+            // Writes to the `last_stdout` file.
             fatal_assert(lseek(worker_to_handle->last_stdout_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
             fatal_assert(ftruncate(worker_to_handle->last_stdout_file_fd, 0) != -1, "cannot truncate!\n");
             buffer wbuf = create_buffer();
@@ -277,9 +297,11 @@ void *worker_main(void *worker_arg) {
         }
         
         if (stderr_buf != NULL) {
+            // Saves the last stderr.
             string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
             array_free(stderr_buf);
     
+            // Writes to the `last_stderr` file.
             fatal_assert(lseek(worker_to_handle->last_stderr_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
             fatal_assert(ftruncate(worker_to_handle->last_stderr_file_fd, 0) != -1, "cannot truncate!\n");
             buffer wbuf = create_buffer();
@@ -287,18 +309,21 @@ void *worker_main(void *worker_arg) {
             fatal_assert(write_buffer(worker_to_handle->last_stderr_file_fd, &wbuf) != -1, "cannot write buffer!\n");
         }
         
+        // Saves the last run.
         run cur_run = {
             .exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : 0xFFFF,
             .time = execution_time
         };
         array_push(worker_to_handle->runs, cur_run);
     
+        // Writes to the `runs` file.
         fatal_assert(lseek(worker_to_handle->runs_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
         fatal_assert(ftruncate(worker_to_handle->runs_file_fd, 0) != -1, "cannot truncate!\n");
         buffer wbuf = create_buffer();
         fatal_assert(write_run_array(&wbuf, worker_to_handle->runs) != -1, "cannot write string!\n");
         fatal_assert(write_buffer(worker_to_handle->runs_file_fd, &wbuf) != -1, "cannot write buffer!\n");
-    
+        
+        // Now that the task has been handled, we can sleep until the next minute.
         sleep_worker(&lock, &cond);
     }
     

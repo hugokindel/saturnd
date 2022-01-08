@@ -224,6 +224,7 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_CREATE_TASK: {
             request.task.taskid = g_last_taskid++;
     
+            // Creates the task thread and save it.
             thread_handle thread_handle = { .taskid = request.task.taskid };
             array_push(g_threads, thread_handle);
             worker *new_worker = NULL;
