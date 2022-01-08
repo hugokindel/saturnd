@@ -11,6 +11,8 @@
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 #include <sys/syslimits.h>
+#include <dirent.h>
+#include <sys/file.h>
 #include "sy5/array.h"
 
 #define htobe16(x) OSSwapHostToBigInt16(x)
@@ -78,6 +80,34 @@ int get_error() {
     }
     
     return EXIT_FAILURE;
+}
+
+int create_folder(const char *path) {
+    DIR *task_dir = opendir(path);
+    
+    if (!task_dir) {
+        assert(errno == ENOENT && mkdir_recursively(path, 0777) != -1);
+        task_dir = opendir(path);
+        assert(task_dir);
+    }
+    
+    assert(closedir(task_dir) != -1);
+    
+    return 0;
+}
+
+int open_file(int *dest, const char *path, const char *filename, int oflags) {
+    char *final_path = calloc(1, PATH_MAX);
+    assert(final_path);
+    assert(sprintf(final_path, "%s%s", path, filename) != -1);
+    
+    int fd = open(final_path, oflags, 0666);
+    assert(fd != -1);
+    *dest = fd;
+    
+    free(final_path);
+    
+    return fd;
 }
 
 int mkdir_recursively(const char *path, uint16_t mode) {

@@ -68,13 +68,13 @@ int main(int argc, char *argv[]) {
     assert(tasks_directory_path);
     assert(sprintf(tasks_directory_path, "%s../tasks/", g_pipes_path) != -1);
     
-    DIR *dir = opendir(g_pipes_path);
+    DIR *pipes_dir = opendir(g_pipes_path);
     
-    // Creates the pipes' directory (recursively) if it doesn't exist.
-    if (!dir) {
+    // Creates the pipe's directory (recursively) if it doesn't exist.
+    if (!pipes_dir) {
         fatal_assert(errno == ENOENT && mkdir_recursively(g_pipes_path, 0777) != -1, "cannot find or create the pipes directory!\n");
-        dir = opendir(g_pipes_path);
-        fatal_assert(dir, "cannot open the pipes directory!\n");
+        pipes_dir = opendir(g_pipes_path);
+        fatal_assert(pipes_dir, "cannot open the pipes directory!\n");
     }
     
     struct dirent *entry;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
     int reply_pipe_found = 0;
     
     // Searches for the pipes files.
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(pipes_dir)) != NULL) {
         if (strcmp(entry->d_name, REQUEST_PIPE_NAME) == 0) {
             request_pipe_found = 1;
         } else if (strcmp(entry->d_name, REPLY_PIPE_NAME) == 0) {
@@ -115,7 +115,41 @@ int main(int argc, char *argv[]) {
     // Creates the reply pipe file if it doesn't exist.
     fatal_assert(reply_pipe_found || mkfifo(g_reply_pipe_path, 0666) != -1, "cannot create the reply pipe!\n");
     
-    closedir(dir);
+    fatal_assert(closedir(pipes_dir) != -1, "cannot close pipes directory!\n");
+    
+    DIR *tasks_dir = opendir(tasks_directory_path);
+    
+    // Creates the tasks directory if it doesn't exists.
+    if (!tasks_dir) {
+        fatal_assert(errno == ENOENT && mkdir_recursively(tasks_directory_path, 0777) != -1, "cannot find or create the tasks directory!\n");
+        tasks_dir = opendir(tasks_directory_path);
+        fatal_assert(tasks_dir, "cannot open the tasks directory!\n");
+    }
+    
+    // Searches for the last taskid used.
+    while ((entry = readdir(tasks_dir)) != NULL) {
+        char* unparsed = NULL;
+        uint64_t taskid = strtoull(entry->d_name, &unparsed, 10);
+    
+        if (errno || (!taskid && entry->d_name == unparsed)) {
+            errno = 0;
+            continue;
+        }
+        
+        if (taskid >= g_last_taskid) {
+            g_last_taskid = taskid + 1;
+        }
+    
+        thread_handle thread_handle = { .taskid = taskid };
+        array_push(g_threads, thread_handle);
+        worker *new_worker = NULL;
+        fatal_assert(create_worker(&new_worker, NULL, tasks_directory_path, taskid) != -1, "cannot create worker!\n");
+        fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
+        fatal_assert(array_push(g_running_taskids, taskid) != -1, "cannot push to `g_running_taskids`!\n");
+        fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+    }
+    
+    fatal_assert(closedir(tasks_dir) != -1, "cannot close tasks directory!\n");
 
 #ifdef DAEMONIZE
     // Attempts a double fork to become a daemon.
@@ -193,7 +227,7 @@ int main(int argc, char *argv[]) {
             thread_handle thread_handle = { .taskid = request.task.taskid };
             array_push(g_threads, thread_handle);
             worker *new_worker = NULL;
-            fatal_assert(create_worker(&new_worker, request.task) != -1, "cannot create worker!\n");
+            fatal_assert(create_worker(&new_worker, &request.task, tasks_directory_path, request.task.taskid) != -1, "cannot create worker!\n");
             fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
             fatal_assert(array_push(g_running_taskids, request.task.taskid) != -1, "cannot push to `g_running_taskids`!\n");
             fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");

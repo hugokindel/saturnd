@@ -33,6 +33,10 @@ void cleanup_paths();
 // Checks `errno` to call `perror` if needed and returns `EXIT_FAILURE`.
 int get_error();
 
+int create_folder(const char *path);
+
+int open_file(int *dest, const char *path, const char *filename, int oflags);
+
 // Creates a directory by calling `mkdir` recursively on a path for every missing parts.
 // Returns `-1` in case of failure, else 0.
 int mkdir_recursively(const char *path, uint16_t mode);

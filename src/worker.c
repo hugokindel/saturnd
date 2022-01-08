@@ -19,16 +19,65 @@ typedef struct worker_cleanup_handle {
     pthread_mutex_t *mutex;
 } worker_cleanup_handle;
 
-int create_worker(worker **dest, task task) {
+int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t taskid) {
     worker *tmp = malloc(sizeof(worker));
     assert(tmp);
     
-    tmp->task = task;
+    if (task != NULL) {
+        tmp->task = *task;
+    }
     tmp->runs = NULL;
     tmp->last_stdout.length = 0;
     tmp->last_stdout.data = NULL;
     tmp->last_stderr.length = 0;
     tmp->last_stderr.data = NULL;
+    char *task_path = calloc(1, PATH_MAX);
+    assert(task_path != NULL);
+#ifdef __APPLE__
+    assert(sprintf(task_path, "%s%llu/", tasks_path, taskid));
+#else
+    assert(sprintf(task_path, "%s%lu/", tasks_path, taskid));
+#endif
+    assert(task_path != NULL);
+    tmp->dir_path = task_path;
+    assert(create_folder(tmp->dir_path) != -1);
+    
+    assert(open_file(&tmp->task_file_fd, tmp->dir_path, "task", O_RDWR | O_CREAT) != -1);
+    off_t pos = lseek(tmp->task_file_fd, 0L, SEEK_END);
+    assert(pos != -1 && (pos != 0 || task != NULL));
+    assert(lseek(tmp->task_file_fd, 0L, SEEK_SET) != -1);
+    if (task != NULL) {
+        assert(ftruncate(tmp->task_file_fd, 0) != -1);
+        buffer buf = create_buffer();
+        assert(write_task(&buf, task, true) != -1);
+        assert(write_buffer(tmp->task_file_fd, &buf) != -1);
+    } else {
+        assert(read_task(tmp->task_file_fd, &tmp->task, true) != -1);
+    }
+    
+    assert(open_file(&tmp->runs_file_fd, tmp->dir_path, "runs", O_RDWR | O_CREAT) != -1);
+    pos = lseek(tmp->runs_file_fd, 0L, SEEK_END);
+    assert(pos != -1);
+    if (pos > 0) {
+        assert(lseek(tmp->runs_file_fd, 0L, SEEK_SET) != -1);
+        assert(read_run_array(tmp->runs_file_fd, &tmp->runs) != -1);
+    }
+    
+    assert(open_file(&tmp->last_stdout_file_fd, tmp->dir_path, "last_stdout", O_RDWR | O_CREAT) != -1);
+    pos = lseek(tmp->last_stdout_file_fd, 0L, SEEK_END);
+    assert(pos != -1);
+    if (pos > 0) {
+        assert(lseek(tmp->last_stdout_file_fd, 0L, SEEK_SET) != -1);
+        assert(read_string(tmp->last_stdout_file_fd, &tmp->last_stdout) != -1);
+    }
+    
+    assert(open_file(&tmp->last_stderr_file_fd, tmp->dir_path, "last_stderr", O_RDWR | O_CREAT) != -1);
+    pos = lseek(tmp->last_stderr_file_fd, 0L, SEEK_END);
+    assert(pos != -1);
+    if (pos > 0) {
+        assert(lseek(tmp->last_stderr_file_fd, 0L, SEEK_SET) != -1);
+        assert(read_string(tmp->last_stderr_file_fd, &tmp->last_stdout) != -1);
+    }
     
     *dest = tmp;
     
@@ -36,10 +85,15 @@ int create_worker(worker **dest, task task) {
 }
 
 int free_worker(worker **worker) {
-    free_task(&(*worker)->task);
+    assert(free_task(&(*worker)->task) != -1);
     array_free((*worker)->runs);
-    free_string(&(*worker)->last_stdout);
-    free_string(&(*worker)->last_stderr);
+    assert(free_string(&(*worker)->last_stdout) != -1);
+    assert(free_string(&(*worker)->last_stderr) != -1);
+    free((*worker)->dir_path);
+    assert(close((*worker)->task_file_fd) != -1);
+    assert(close((*worker)->runs_file_fd) != -1);
+    assert(close((*worker)->last_stdout_file_fd) != -1);
+    assert(close((*worker)->last_stderr_file_fd) != -1);
     free(*worker);
     *worker = NULL;
     
@@ -108,6 +162,24 @@ void *worker_main(void *worker_arg) {
     
     worker_cleanup_handle cleanup_handle = { .worker = worker_to_handle, .mutex = &lock };
     pthread_cleanup_push(cleanup_worker, &cleanup_handle)
+    
+    if (array_size(worker_to_handle->runs) > 0) {
+        uint64_t execution_time_last_run = array_last(worker_to_handle->runs).time;
+        time_t timestamp_last_run = (time_t)execution_time_last_run;
+        struct tm *time_info_last_run = localtime(&timestamp_last_run);
+        
+        uint64_t execution_time_now = time(NULL);
+        time_t timestamp_now = (time_t)execution_time_now;
+        struct tm *time_info_now = localtime(&timestamp_now);
+        
+        if (time_info_last_run->tm_year == time_info_now->tm_year &&
+            time_info_last_run->tm_mon == time_info_now->tm_mon &&
+            time_info_last_run->tm_mday == time_info_now->tm_mday &&
+            time_info_last_run->tm_hour == time_info_now->tm_hour &&
+            time_info_last_run->tm_min == time_info_now->tm_min) {
+            sleep_worker(&lock, &cond);
+        }
+    }
     
     while (true) {
         uint64_t execution_time = time(NULL);
@@ -196,19 +268,36 @@ void *worker_main(void *worker_arg) {
         if (stdout_buf != NULL) {
             string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
             array_free(stdout_buf);
+    
+            fatal_assert(lseek(worker_to_handle->last_stdout_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
+            fatal_assert(ftruncate(worker_to_handle->last_stdout_file_fd, 0) != -1, "cannot truncate!\n");
+            buffer wbuf = create_buffer();
+            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stdout) != -1, "cannot write string!\n");
+            fatal_assert(write_buffer(worker_to_handle->last_stdout_file_fd, &wbuf) != -1, "cannot write buffer!\n");
         }
         
         if (stderr_buf != NULL) {
             string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
             array_free(stderr_buf);
+    
+            fatal_assert(lseek(worker_to_handle->last_stderr_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
+            fatal_assert(ftruncate(worker_to_handle->last_stderr_file_fd, 0) != -1, "cannot truncate!\n");
+            buffer wbuf = create_buffer();
+            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stderr) != -1, "cannot write string!\n");
+            fatal_assert(write_buffer(worker_to_handle->last_stderr_file_fd, &wbuf) != -1, "cannot write buffer!\n");
         }
         
         run cur_run = {
             .exitcode = WIFEXITED(status) ? WEXITSTATUS(status) : 0xFFFF,
             .time = execution_time
         };
-        
         array_push(worker_to_handle->runs, cur_run);
+    
+        fatal_assert(lseek(worker_to_handle->runs_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
+        fatal_assert(ftruncate(worker_to_handle->runs_file_fd, 0) != -1, "cannot truncate!\n");
+        buffer wbuf = create_buffer();
+        fatal_assert(write_run_array(&wbuf, worker_to_handle->runs) != -1, "cannot write string!\n");
+        fatal_assert(write_buffer(worker_to_handle->runs_file_fd, &wbuf) != -1, "cannot write buffer!\n");
     
         sleep_worker(&lock, &cond);
     }

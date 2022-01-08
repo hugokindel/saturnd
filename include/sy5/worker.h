@@ -9,6 +9,11 @@ typedef struct worker {
     run *runs;
     string last_stdout;
     string last_stderr;
+    char *dir_path;
+    int task_file_fd;
+    int runs_file_fd;
+    int last_stdout_file_fd;
+    int last_stderr_file_fd;
 } worker;
 
 // Array of workers.
@@ -19,7 +24,7 @@ extern uint64_t *g_running_taskids;
 
 // Creates a worker.
 // Returns `-1` in case of failure, else 0.
-int create_worker(worker **dest, task task);
+int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t taskid);
 
 // Frees a worker.
 // Returns `-1` in case of failure, else 0.
