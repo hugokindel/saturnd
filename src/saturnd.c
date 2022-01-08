@@ -23,7 +23,7 @@ static const char g_help[] =
     "usage: saturnd [OPTIONS]\n"
     "\n"
     "options:\n"
-    "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
+    "\t-p PIPES_DIR -> look for the pipes (or creates them if not existing) in PIPES_DIR (default: /tmp/<USERNAME>/saturnd/pipes)\n";
 
 typedef struct thread_handle {
     pthread_t pthread;

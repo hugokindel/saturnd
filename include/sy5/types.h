@@ -4,9 +4,6 @@
 // Includes integer types (`uint8_t`, `uint16_t`, `uint32_t`, `uint64_t`, `int8_t`, `int16_t`, `int32_t`, `int64_t`).
 #include <stdint.h>
 
-// The default pipes directory to use.
-#define DEFAULT_PIPES_DIR "/tmp/<USERNAME>/saturnd/pipes"
-
 // The name of the default request pipe.
 #define REQUEST_PIPE_NAME "saturnd-request-pipe"
 

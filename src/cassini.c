@@ -31,7 +31,7 @@ static const char g_help[] =
     "\tor: cassini -h -> display this message\n"
     "\n"
     "options:\n"
-    "\t-p PIPES_DIR -> look for the pipes in PIPES_DIR (default: " DEFAULT_PIPES_DIR ")\n";
+    "\t-p PIPES_DIR -> look for the pipes in PIPES_DIR (default: /tmp/<USERNAME>/saturnd/pipes)\n";
 
 int main(int argc, char *argv[]) {
     errno = 0;
