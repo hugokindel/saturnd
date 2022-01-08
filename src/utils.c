@@ -601,14 +601,6 @@ int copy_commandline(commandline *dest, const commandline *src) {
     return 0;
 }
 
-int copy_task(task *dest, const task *src) {
-    dest->taskid = src->taskid;
-    assert(copy_timing(&dest->timing, &src->timing) != -1);
-    assert(copy_commandline(&dest->commandline, &src->commandline) != -1);
-    
-    return 0;
-}
-
 int free_string(string *string) {
     free(string->data);
     string->data = NULL;

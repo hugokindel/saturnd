@@ -185,10 +185,6 @@ int copy_string(string *dest, const string *src);
 // Returns `-1` in case of failure, else 0.
 int copy_commandline(commandline *dest, const commandline *src);
 
-// Copies a `task`.
-// Returns `-1` in case of failure, else 0.
-int copy_task(task *dest, const task *src);
-
 // Frees a `string`.
 // Returns `-1` in case of failure, else 0.
 int free_string(string *string);
