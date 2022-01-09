@@ -3,6 +3,11 @@ project(task_planner C)
 
 set(CMAKE_C_STANDARD 99)
 
+if (UNIX AND NOT APPLE)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
+endif()
+
 add_executable(cassini
         include/sy5/array.h
         include/sy5/reply.h
@@ -32,3 +37,6 @@ add_executable(saturnd
 target_include_directories(saturnd PRIVATE include)
 target_compile_definitions(saturnd PRIVATE SATURND)
 #target_compile_definitions(saturnd PRIVATE DAEMONIZE)
+if (UNIX AND NOT APPLE)
+    target_link_libraries(saturnd PRIVATE Threads::Threads)
+endif()

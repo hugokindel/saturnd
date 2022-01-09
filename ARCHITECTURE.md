@@ -8,7 +8,7 @@
 /
 ├─┬─include/sy5/: Les fichiers d'en-têtes du projet.
 │ └─┬─array.h: Fonctions permettant de représenter un tableau dynamique.
-│   ├─common.h: Variables partagés entre cassini et cassini.
+│   ├─common.h: Variables partagés entre cassini et saturnd.
 │   ├─reply.h: Structure permettant de représenter une réponse.
 │   ├─request.h: Structure permettant de représenter une requête.
 │   ├─types.h: Structures principales nécessaire au projet.

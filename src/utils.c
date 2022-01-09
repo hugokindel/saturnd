@@ -9,13 +9,11 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/errno.h>
-#include <sys/syslimits.h>
 #include <sy5/array.h>
 #include <sy5/common.h>
-
 #ifdef __APPLE__
+#include <sys/syslimits.h>
 #include <libkern/OSByteOrder.h>
-
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define htobe32(x) OSSwapHostToBigInt32(x)
 #define htobe64(x) OSSwapHostToBigInt64(x)
@@ -23,6 +21,7 @@
 #define be32toh(x) OSSwapBigToHostInt32(x)
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #else
+#include <limits.h>
 #include <endian.h>
 #endif
 

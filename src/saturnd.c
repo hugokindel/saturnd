@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
             fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
             fatal_error("daemon is already running or pipes are being used by another process\n");
         }
+        errno = 0;
     } else {
         // Creates the request pipe file if it doesn't exits.
         fatal_assert(mkfifo(g_request_pipe_path, 0666) != -1, "cannot create the request pipe!\n");

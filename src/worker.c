@@ -6,11 +6,13 @@
 #include <getopt.h>
 #include <limits.h>
 #include <syslog.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <sys/wait.h>
 #include <sys/fcntl.h>
 #include <sy5/utils.h>
 #include <sy5/array.h>
-#include <pthread.h>
-#include <sys/time.h>
 
 worker **g_workers = NULL;
 uint64_t *g_running_taskids = NULL;
@@ -150,18 +152,14 @@ void cleanup_worker(void *cleanup_handle_ptr) {
 }
 
 void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
-    uint64_t execution_time = time(NULL);
-    time_t timestamp = (time_t)execution_time;
-    struct tm *time_info = localtime(&timestamp);
-    struct timeval now;
-    gettimeofday(&now, NULL);
-    struct timespec sleep_duration = {now.tv_sec + 1 * (60 - time_info->tm_sec), 0};
+    time_t cur_time = (time_t)time(NULL);
+    struct timespec duration = {cur_time + 1 * (60 - cur_time % 60) + 1, 0};
     
     // Make the thread sleep until the next minute approximativaly.
     // The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
     // saturnd is exiting).
     pthread_mutex_lock(lock);
-    pthread_cond_timedwait(cond, lock, &sleep_duration);
+    pthread_cond_timedwait(cond, lock, &duration);
     pthread_mutex_unlock(lock);
 }
 
@@ -173,16 +171,14 @@ void *worker_main(void *worker_arg) {
     worker_cleanup_handle cleanup_handle = { .worker = worker_to_handle, .mutex = &lock };
     
     // Push the cleanup handler (that will happen once the thread is going to end).
-    pthread_cleanup_push(cleanup_worker, &cleanup_handle)
+    pthread_cleanup_push(cleanup_worker, &cleanup_handle);
     
     // If there are already any `runs` (meaning we read this task from file), check if it has already been run this
     // exact minute. If it did, sleep until the next minute.
     if (array_size(worker_to_handle->runs) > 0) {
-        uint64_t execution_time_last_run = array_last(worker_to_handle->runs).time;
-        time_t timestamp_last_run = (time_t)execution_time_last_run;
+        time_t timestamp_last_run = (time_t)array_last(worker_to_handle->runs).time;
         struct tm *time_info_last_run = localtime(&timestamp_last_run);
-        uint64_t execution_time_now = time(NULL);
-        time_t timestamp_now = (time_t)execution_time_now;
+        time_t timestamp_now = (time_t)time(NULL);
         struct tm *time_info_now = localtime(&timestamp_now);
         
         if (time_info_last_run->tm_year == time_info_now->tm_year &&
@@ -334,7 +330,7 @@ void *worker_main(void *worker_arg) {
     log("error in worker thread!\n");
     
     cleanup:
-    pthread_cleanup_pop(1)
+    pthread_cleanup_pop(1);
     
     return NULL;
 }
