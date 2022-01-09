@@ -57,6 +57,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
         buffer buf = create_buffer();
         assert(write_task(&buf, task, 1) != -1);
         assert(write_buffer(tmp->task_file_fd, &buf) != -1);
+        free(buf.data);
     } else {
         assert(read_task(tmp->task_file_fd, &tmp->task, 1) != -1);
     }
@@ -85,7 +86,7 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
     assert(pos != -1);
     if (pos > 0) {
         assert(lseek(tmp->last_stderr_file_fd, 0L, SEEK_SET) != -1);
-        assert(read_string(tmp->last_stderr_file_fd, &tmp->last_stdout) != -1);
+        assert(read_string(tmp->last_stderr_file_fd, &tmp->last_stderr) != -1);
     }
     
     *dest = tmp;
@@ -222,14 +223,13 @@ void *worker_main(void *worker_arg) {
             fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
             
             // Creates the `argv` array for the upcoming `exec` call.
-            char **argv = NULL;
+            char *argv[worker_to_handle->task.commandline.argc + 1];
             for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
                 char *arg = NULL;
                 fatal_assert(cstring_from_string(&arg, worker_to_handle->task.commandline.argv) != -1, "cannot convert cstring from string!\n");
-                fatal_assert(array_push(argv, arg) != -1, "cannot push arg to argv!\n");
+                argv[i] = arg;
             }
-            char *null_arg = NULL;
-            fatal_assert(array_push(argv, null_arg) != -1, "cannot push arg to argv!\n");
+            argv[worker_to_handle->task.commandline.argc] = NULL;
             
             // Execute the command in the fork.
             execvp(argv[0], argv);
@@ -290,6 +290,7 @@ void *worker_main(void *worker_arg) {
             buffer wbuf = create_buffer();
             fatal_assert(write_string(&wbuf, &worker_to_handle->last_stdout) != -1, "cannot write string!\n");
             fatal_assert(write_buffer(worker_to_handle->last_stdout_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+            free(wbuf.data);
         }
         
         if (stderr_buf != NULL) {
@@ -303,6 +304,7 @@ void *worker_main(void *worker_arg) {
             buffer wbuf = create_buffer();
             fatal_assert(write_string(&wbuf, &worker_to_handle->last_stderr) != -1, "cannot write string!\n");
             fatal_assert(write_buffer(worker_to_handle->last_stderr_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+            free(wbuf.data);
         }
         
         // Saves the last run.
@@ -318,6 +320,7 @@ void *worker_main(void *worker_arg) {
         buffer wbuf = create_buffer();
         fatal_assert(write_run_array(&wbuf, worker_to_handle->runs) != -1, "cannot write string!\n");
         fatal_assert(write_buffer(worker_to_handle->runs_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+        free(wbuf.data);
         
         // Now that the task has been handled, we can sleep until the next minute.
         sleep_worker(&lock, &cond);

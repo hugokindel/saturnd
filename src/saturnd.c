@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
         array_push(g_threads, thread_handle);
         worker *new_worker = NULL;
         fatal_assert(create_worker(&new_worker, NULL, tasks_directory_path, taskid) != -1, "cannot create worker!\n");
-        fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
+        fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n"); // NOLINT
         fatal_assert(array_push(g_running_taskids, taskid) != -1, "cannot push to `g_running_taskids`!\n");
         fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     }
@@ -161,14 +161,14 @@ int main(int argc, char *argv[]) {
     
     fatal_assert(daemon_pid != -1, "cannot create the daemon process (failed initial fork)!\n");
     if (daemon_pid != 0) {
-        exit(EXIT_SUCCESS);
+        goto cleanup;
     }
     
     daemon_pid = fork();
     
     fatal_assert(daemon_pid != -1, "cannot create the daemon process (failed second fork)!\n");
     if (daemon_pid != 0) {
-        exit(EXIT_SUCCESS);
+        goto cleanup;
     }
 #endif
     
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
             array_push(g_threads, thread_handle);
             worker *new_worker = NULL;
             fatal_assert(create_worker(&new_worker, &request.task, tasks_directory_path, request.task.taskid) != -1, "cannot create worker!\n");
-            fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n");
+            fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n"); // NOLINT
             fatal_assert(array_push(g_running_taskids, request.task.taskid) != -1, "cannot push to `g_running_taskids`!\n");
             fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     
@@ -364,6 +364,7 @@ int main(int argc, char *argv[]) {
         pthread_cancel(g_threads[i].pthread);
         pthread_join(g_threads[i].pthread, NULL);
     }
+    array_free(g_threads);
     array_free(g_workers);
     free(tasks_directory_path);
     cleanup_paths();
