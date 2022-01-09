@@ -152,13 +152,12 @@ void cleanup_worker(void *cleanup_handle_ptr) {
 }
 
 void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
-    time_t cur_time = (time_t)time(NULL);
-    struct timespec duration = {cur_time + 1 * (60 - cur_time % 60) + 1, 0};
-    
     // Make the thread sleep until the next minute approximativaly.
     // The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
     // saturnd is exiting).
     pthread_mutex_lock(lock);
+    time_t cur_time = (time_t)time(NULL);
+    struct timespec duration = {cur_time + 1 * (60 - cur_time % 60) + 1, 0};
     pthread_cond_timedwait(cond, lock, &duration);
     pthread_mutex_unlock(lock);
 }
@@ -171,7 +170,7 @@ void *worker_main(void *worker_arg) {
     worker_cleanup_handle cleanup_handle = { .worker = worker_to_handle, .mutex = &lock };
     
     // Push the cleanup handler (that will happen once the thread is going to end).
-    pthread_cleanup_push(cleanup_worker, &cleanup_handle);
+    pthread_cleanup_push(cleanup_worker, &cleanup_handle); // NOLINT
     
     // If there are already any `runs` (meaning we read this task from file), check if it has already been run this
     // exact minute. If it did, sleep until the next minute.
@@ -330,7 +329,7 @@ void *worker_main(void *worker_arg) {
     log("error in worker thread!\n");
     
     cleanup:
-    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1); // NOLINT
     
     return NULL;
 }

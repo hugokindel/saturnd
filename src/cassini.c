@@ -188,10 +188,13 @@ int main(int argc, char *argv[]) {
                 for (uint32_t j = 0; j < tasks[i].commandline.argc; j++) {
                     char *argv_str = NULL;
                     fatal_assert(cstring_from_string(&argv_str, &tasks[i].commandline.argv[j]) != -1, "cannot read `argv` from response!\n");
-                    printf(" %s", argv_str);
+                    if (argv_str != NULL) {
+                        printf(" %s", argv_str);
+                    }
                     free(argv_str);
                 }
                 printf("\n");
+                free_task(&tasks[i]);
             }
             array_free(tasks);
             break;
@@ -229,6 +232,7 @@ int main(int argc, char *argv[]) {
             if (output_str != NULL) {
                 printf("%s", output_str);
             }
+            free_string(&output);
             free(output_str);
             break;
         }

@@ -144,7 +144,7 @@ int mkdir_recursively(const char *path, uint16_t mode) {
 int string_from_cstring(string *dest, const char *cstring) {
     dest->length = strlen(cstring);
     
-    dest->data = malloc(dest->length);
+    dest->data = calloc(1, dest->length + 1);
     assert(dest->data);
     for (uint32_t i = 0; i < dest->length; i++) {
         dest->data[i] = cstring[i];
@@ -156,7 +156,7 @@ int string_from_cstring(string *dest, const char *cstring) {
 }
 
 int cstring_from_string(char **dest, const string *string) {
-    *dest = malloc(string->length);
+    *dest = calloc(1, string->length + 1);
     assert(*dest);
     for (uint32_t i = 0; i < string->length; i++) {
         (*dest)[i] = (uint8_t)string->data[i]; // NOLINT
