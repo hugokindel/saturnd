@@ -175,6 +175,8 @@ int main(int argc, char *argv[]) {
         fatal_assert(array_push(g_running_taskids, existing_taskids[i]) != -1, "cannot push to `g_running_taskids`!\n");
         fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     }
+    
+    array_free(existing_taskids);
 
 #ifdef DAEMONIZE
     // Attempts a double fork to become a daemon.
