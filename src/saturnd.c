@@ -128,7 +128,8 @@ int main(int argc, char *argv[]) {
         fatal_assert(tasks_dir, "cannot open the tasks directory!\n");
     }
     
-    // Searches for the last taskid used.
+    uint64_t *existing_taskids = NULL;
+    // Searches for existing tasks.
     while ((entry = readdir(tasks_dir)) != NULL) {
         char* unparsed = NULL;
         uint64_t taskid = strtoull(entry->d_name, &unparsed, 10);
@@ -138,22 +139,42 @@ int main(int argc, char *argv[]) {
             continue;
         }
         
+        array_push(existing_taskids, taskid);
+        
         // Calculate the last taskid used based on directories names.
         if (taskid >= g_last_taskid) {
             g_last_taskid = taskid + 1;
         }
-    
-        // Loads any existing task and create its thread.
-        thread_handle thread_handle = { .taskid = taskid };
-        array_push(g_threads, thread_handle);
-        worker *new_worker = NULL;
-        fatal_assert(create_worker(&new_worker, NULL, tasks_directory_path, taskid) != -1, "cannot create worker!\n");
-        fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n"); // NOLINT
-        fatal_assert(array_push(g_running_taskids, taskid) != -1, "cannot push to `g_running_taskids`!\n");
-        fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
     }
     
     fatal_assert(closedir(tasks_dir) != -1, "cannot close tasks directory!\n");
+    
+    // Sort existing tasks.
+    uint64_t k;
+    for (uint64_t i = 0; i < array_size(existing_taskids) - 1; i++) {
+        k = i;
+        
+        for (uint64_t j = i + 1; j < array_size(existing_taskids); j++) {
+            if (existing_taskids[j] < existing_taskids[k]) {
+                k = j;
+            }
+        }
+    
+        uint64_t tmp = existing_taskids[k];
+        existing_taskids[k] = existing_taskids[i];
+        existing_taskids[i] = tmp;
+    }
+    
+    // Loads any existing task and create its thread.
+    for (uint64_t i = 0; i < array_size(existing_taskids); i++) {
+        thread_handle thread_handle = { .taskid = existing_taskids[i] };
+        array_push(g_threads, thread_handle);
+        worker *new_worker = NULL;
+        fatal_assert(create_worker(&new_worker, NULL, tasks_directory_path, existing_taskids[i]) != -1, "cannot create worker!\n");
+        fatal_assert(array_push(g_workers, new_worker) != -1, "cannot push to `g_workers`!\n"); // NOLINT
+        fatal_assert(array_push(g_running_taskids, existing_taskids[i]) != -1, "cannot push to `g_running_taskids`!\n");
+        fatal_assert(pthread_create(&(array_last(g_threads).pthread), NULL, worker_main, (void *) array_last(g_workers)) == 0, "cannot create task thread!\n");
+    }
 
 #ifdef DAEMONIZE
     // Attempts a double fork to become a daemon.
