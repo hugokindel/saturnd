@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     
     // Sort existing tasks.
     uint64_t k;
-    for (uint64_t i = 0; i < array_size(existing_taskids) - 1; i++) {
+    for (uint64_t i = 0; i < (array_size(existing_taskids) == 0) ? 0 : array_size(existing_taskids) - 1; i++) {
         k = i;
         
         for (uint64_t j = i + 1; j < array_size(existing_taskids); j++) {
