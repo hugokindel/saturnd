@@ -17,6 +17,10 @@ Once the project is built, you can run the daemon with `./saturnd` and you can
 send commands to it using `./cassini`, to know what you can do precisely,
 run the `./cassini -h`.
 
+# Architecture
+
+The architecture of this project can be found in `ARCHITECTURE.md` (written in french).
+
 ## Contributors
 
 - [KINDEL Hugo](https://gaufre.informatique.univ-paris-diderot.fr/hugokindel)
