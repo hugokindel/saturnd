@@ -212,10 +212,6 @@ void *worker_main(void *worker_arg) {
         int stderr_pipe[2];
         fatal_assert(pipe(stderr_pipe) != -1);
     
-        if (execution_time % 60 == 1) {
-            execution_time -= 1;
-        }
-        
         pid_t fork_pid = fork();
         fatal_assert(fork_pid != -1);
         
