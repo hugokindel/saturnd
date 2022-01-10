@@ -290,8 +290,6 @@ int main(int argc, char *argv[]) {
     
             fatal_assert(remove_worker(request.taskid) != -1);
     
-            printf("%s", dir_path);
-            
             char *task_file_path = calloc(1, PATH_MAX);
             fatal_assert(sprintf(task_file_path, "%stask", dir_path) != -1);
             char *runs_file_path = calloc(1, PATH_MAX);
