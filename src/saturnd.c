@@ -118,6 +118,23 @@ int main(int argc, char *argv[]) {
     fatal_assert(reply_pipe_found || mkfifo(g_reply_pipe_path, 0666) != -1);
     
     fatal_assert(closedir(pipes_dir) != -1);
+
+#ifdef DAEMONIZE
+    // Attempts a double fork to become a daemon.
+    pid_t daemon_pid = fork();
+    
+    fatal_assert(daemon_pid != -1);
+    if (daemon_pid != 0) {
+        goto cleanup;
+    }
+    
+    daemon_pid = fork();
+    
+    fatal_assert(daemon_pid != -1);
+    if (daemon_pid != 0) {
+        goto cleanup;
+    }
+#endif
     
     DIR *tasks_dir = opendir(tasks_directory_path);
     
@@ -179,23 +196,6 @@ int main(int argc, char *argv[]) {
     }
     
     array_free(existing_taskids);
-
-#ifdef DAEMONIZE
-    // Attempts a double fork to become a daemon.
-    pid_t daemon_pid = fork();
-    
-    fatal_assert(daemon_pid != -1);
-    if (daemon_pid != 0) {
-        goto cleanup;
-    }
-    
-    daemon_pid = fork();
-    
-    fatal_assert(daemon_pid != -1);
-    if (daemon_pid != 0) {
-        goto cleanup;
-    }
-#endif
     
     log("daemon started.\n");
     

@@ -174,23 +174,6 @@ void *worker_main(void *worker_arg) {
     // Push the cleanup handler (that will happen once the thread is going to end).
     pthread_cleanup_push(cleanup_worker, &cleanup_handle); // NOLINT
     
-    // If there are already any `runs` (meaning we read this task from file), check if it has already been run this
-    // exact minute. If it did, sleep until the next minute.
-    if (array_size(worker_to_handle->runs) > 0) {
-        time_t timestamp_last_run = (time_t)array_last(worker_to_handle->runs).time;
-        struct tm time_info_last_run = *localtime(&timestamp_last_run);
-        time_t timestamp_now = (time_t)time(NULL);
-        struct tm time_info_now = *localtime(&timestamp_now);
-        
-        if (time_info_last_run.tm_year == time_info_now.tm_year &&
-            time_info_last_run.tm_mon == time_info_now.tm_mon &&
-            time_info_last_run.tm_mday == time_info_now.tm_mday &&
-            time_info_last_run.tm_hour == time_info_now.tm_hour &&
-            time_info_last_run.tm_min == time_info_now.tm_min) {
-            sleep_worker(&lock, &cond);
-        }
-    }
-    
     while (1) {
         // Checks if the task has to run this minute, if not, sleep until the next minute.
         uint64_t execution_time = time(NULL);
