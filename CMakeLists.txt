@@ -36,7 +36,7 @@ add_executable(saturnd
         src/utils.c)
 target_include_directories(saturnd PRIVATE include)
 target_compile_definitions(saturnd PRIVATE SATURND)
-#target_compile_definitions(saturnd PRIVATE DAEMONIZE)
+target_compile_definitions(saturnd PRIVATE DAEMONIZE)
 if (UNIX AND NOT APPLE)
     target_link_libraries(saturnd PRIVATE Threads::Threads)
 endif()
