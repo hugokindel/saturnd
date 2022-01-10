@@ -37,9 +37,9 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
     char *task_path = calloc(1, PATH_MAX);
     assert(task_path != NULL);
 #ifdef __APPLE__
-    assert(sprintf(task_path, "%s%llu/", tasks_path, taskid));
+    assert(sprintf(task_path, "%s%llu/", tasks_path, taskid) != -1);
 #else
-    assert(sprintf(task_path, "%s%lu/", tasks_path, taskid));
+    assert(sprintf(task_path, "%s%lu/", tasks_path, taskid) != -1);
 #endif
     assert(task_path != NULL);
     tmp->dir_path = task_path;
@@ -94,18 +94,17 @@ int create_worker(worker **dest, task *task, const char *tasks_path, uint64_t ta
     return 0;
 }
 
-int free_worker(worker **worker) {
-    assert(free_task(&(*worker)->task) != -1);
-    array_free((*worker)->runs);
-    assert(free_string(&(*worker)->last_stdout) != -1);
-    assert(free_string(&(*worker)->last_stderr) != -1);
-    free((*worker)->dir_path);
-    assert(close((*worker)->task_file_fd) != -1);
-    assert(close((*worker)->runs_file_fd) != -1);
-    assert(close((*worker)->last_stdout_file_fd) != -1);
-    assert(close((*worker)->last_stderr_file_fd) != -1);
-    free(*worker);
-    *worker = NULL;
+int free_worker(worker *worker) {
+    free_task(&worker->task);
+    array_free(worker->runs);
+    free_string(&worker->last_stdout);
+    free_string(&worker->last_stderr);
+    free(worker->dir_path);
+    assert(close(worker->task_file_fd) != -1);
+    assert(close(worker->runs_file_fd) != -1);
+    assert(close(worker->last_stdout_file_fd) != -1);
+    assert(close(worker->last_stderr_file_fd) != -1);
+    free(worker);
     
     return 0;
 }
@@ -147,20 +146,30 @@ worker *get_worker(uint64_t taskid) {
 void cleanup_worker(void *cleanup_handle_ptr) {
     worker_cleanup_handle *cleanup_handle = cleanup_handle_ptr;
     pthread_mutex_unlock(cleanup_handle->mutex);
-    free_worker(&cleanup_handle->worker);
+    free_worker(cleanup_handle->worker);
     
     log("worker thread shutting down...\n");
 }
 
+// Make the thread sleep until the next minute approximativaly.
+// The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
+// saturnd is exiting).
 void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
-    // Make the thread sleep until the next minute approximativaly.
-    // The sleep can be cancelled by a `pthread_cancel` (can happen if a request to remove this task is received or if
-    // saturnd is exiting).
-    pthread_mutex_lock(lock);
-    time_t cur_time = (time_t)time(NULL);
-    struct timespec duration = {cur_time + 1 * (60 - cur_time % 60) + 1, 0};
-    pthread_cond_timedwait(cond, lock, &duration);
-    pthread_mutex_unlock(lock);
+    struct timespec now_time;
+    clock_gettime(CLOCK_REALTIME, &now_time);
+    struct tm *cur_tm = localtime(&now_time.tv_sec);
+    int start_min = cur_tm->tm_min;
+    
+    do {
+        struct timespec duration = {now_time.tv_sec + 60 - cur_tm->tm_sec + 1, 0}; // NOLINT
+        
+        pthread_mutex_lock(lock);
+        pthread_cond_timedwait(cond, lock, &duration);
+        pthread_mutex_unlock(lock);
+        
+        clock_gettime(CLOCK_REALTIME, &now_time);
+        cur_tm = localtime(&now_time.tv_sec);
+    } while (cur_tm->tm_min == start_min);
 }
 
 void *worker_main(void *worker_arg) {
@@ -207,26 +216,26 @@ void *worker_main(void *worker_arg) {
         
         // Create self-pipes to extract `stdout` and `stderr` from the upcoming `exec` call.
         int stdout_pipe[2];
+        fatal_assert(pipe(stdout_pipe) != -1);
         int stderr_pipe[2];
-        fatal_assert(pipe(stdout_pipe) != -1, "cannot create stdout pipe!\n");
-        fatal_assert(pipe(stderr_pipe) != -1, "cannot create stdout pipe!\n");
+        fatal_assert(pipe(stderr_pipe) != -1);
         
         pid_t fork_pid = fork();
-        fatal_assert(fork_pid != -1, "cannot create task fork!\n");
+        fatal_assert(fork_pid != -1);
         
         if (fork_pid == 0) {
-            fatal_assert(close(stdout_pipe[0]) != -1, "cannot close stdout pipe!\n");
-            fatal_assert(close(stderr_pipe[0]) != -1, "cannot close stderr pipe!\n");
-            fatal_assert(dup2(stdout_pipe[1], STDOUT_FILENO) != -1, "cannot duplicate stdout!\n");
-            fatal_assert(dup2(stderr_pipe[1], STDERR_FILENO) != -1, "cannot duplicate stderr!\n");
-            fatal_assert(close(stdout_pipe[1]) != -1, "cannot close stdout pipe!\n");
-            fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
+            fatal_assert(close(stdout_pipe[0]) != -1);
+            fatal_assert(dup2(stdout_pipe[1], STDOUT_FILENO) != -1);
+            fatal_assert(close(stdout_pipe[1]) != -1);
+            fatal_assert(close(stderr_pipe[0]) != -1);
+            fatal_assert(dup2(stderr_pipe[1], STDERR_FILENO) != -1);
+            fatal_assert(close(stderr_pipe[1]) != -1);
             
             // Creates the `argv` array for the upcoming `exec` call.
             char *argv[worker_to_handle->task.commandline.argc + 1];
             for (uint32_t i = 0; i < worker_to_handle->task.commandline.argc; i++) {
                 char *arg = NULL;
-                fatal_assert(cstring_from_string(&arg, worker_to_handle->task.commandline.argv) != -1, "cannot convert cstring from string!\n");
+                fatal_assert(cstring_from_string(&arg, worker_to_handle->task.commandline.argv) != -1);
                 argv[i] = arg;
             }
             argv[worker_to_handle->task.commandline.argc] = NULL;
@@ -237,8 +246,8 @@ void *worker_main(void *worker_arg) {
             exit(EXIT_FAILURE);
         }
         
-        fatal_assert(close(stdout_pipe[1]) != -1, "cannot close stdout pipe!\n");
-        fatal_assert(close(stderr_pipe[1]) != -1, "cannot close stderr pipe!\n");
+        fatal_assert(close(stdout_pipe[1]) != -1);
+        fatal_assert(close(stderr_pipe[1]) != -1);
         
         char buf[PIPE_BUF] = { 0 };
         
@@ -246,21 +255,22 @@ void *worker_main(void *worker_arg) {
         char *stdout_buf = NULL;
         while (read(stdout_pipe[0], buf, sizeof(buf)) != 0) {
             for (uint32_t i = 0; i < PIPE_BUF; i++) {
-                array_push(stdout_buf, buf[i]);
+                fatal_assert(array_push(stdout_buf, buf[i]) != -1);
                 
                 if (buf[i] == 0) {
                     break;
                 }
             }
             
-            memset (buf, 0, sizeof(buf));
+            void *tmp = memset(buf, 0, sizeof(buf));
+            fatal_assert(tmp);
         }
         
         // Read the last stderr in a buffer.
         char *stderr_buf = NULL;
         while (read(stderr_pipe[0], buf, sizeof(buf)) != 0) {
             for (uint32_t i = 0; i < PIPE_BUF; i++) {
-                array_push(stderr_buf, buf[i]);
+                fatal_assert(array_push(stderr_buf, buf[i]) != -1);
                 
                 if (buf[i] == 0) {
                     break;
@@ -268,42 +278,49 @@ void *worker_main(void *worker_arg) {
             }
             
             char null_char = 0;
-            array_push(stderr_buf, null_char);
+            fatal_assert(array_push(stderr_buf, null_char) != -1);
             
-            memset (buf, 0, sizeof(buf));
+            void *tmp = memset(buf, 0, sizeof(buf));
+            fatal_assert(tmp);
         }
     
-        fatal_assert(close(stdout_pipe[0]) != -1, "cannot close stdout pipe!\n");
-        fatal_assert(close(stderr_pipe[0]) != -1, "cannot close stderr pipe!\n");
+        fatal_assert(close(stdout_pipe[0]) != -1);
+        fatal_assert(close(stderr_pipe[0]) != -1);
         
         int status;
-        fatal_assert(waitpid(fork_pid, &status, 0) != -1, "cannot waitpid for fork!\n");
+        fatal_assert(waitpid(fork_pid, &status, 0) != -1);
         
         if (stdout_buf != NULL) {
             // Saves the last stdout.
-            string_from_cstring(&worker_to_handle->last_stdout, stdout_buf);
+            if (worker_to_handle->last_stdout.length > 0) {
+                free(worker_to_handle->last_stdout.data);
+            }
+            fatal_assert(string_from_cstring(&worker_to_handle->last_stdout, stdout_buf) != -1);
             array_free(stdout_buf);
     
             // Writes to the `last_stdout` file.
-            fatal_assert(lseek(worker_to_handle->last_stdout_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
-            fatal_assert(ftruncate(worker_to_handle->last_stdout_file_fd, 0) != -1, "cannot truncate!\n");
+            fatal_assert(lseek(worker_to_handle->last_stdout_file_fd, 0L, SEEK_SET) != -1);
+            fatal_assert(ftruncate(worker_to_handle->last_stdout_file_fd, 0) != -1);
             buffer wbuf = create_buffer();
-            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stdout) != -1, "cannot write string!\n");
-            fatal_assert(write_buffer(worker_to_handle->last_stdout_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stdout) != -1);
+            fatal_assert(write_buffer(worker_to_handle->last_stdout_file_fd, &wbuf) != -1);
             free(wbuf.data);
         }
         
         if (stderr_buf != NULL) {
             // Saves the last stderr.
-            string_from_cstring(&worker_to_handle->last_stderr, stderr_buf);
+            if (worker_to_handle->last_stderr.length > 0) {
+                free(worker_to_handle->last_stderr.data);
+            }
+            fatal_assert(string_from_cstring(&worker_to_handle->last_stderr, stderr_buf) != -1);
             array_free(stderr_buf);
     
             // Writes to the `last_stderr` file.
-            fatal_assert(lseek(worker_to_handle->last_stderr_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
-            fatal_assert(ftruncate(worker_to_handle->last_stderr_file_fd, 0) != -1, "cannot truncate!\n");
+            fatal_assert(lseek(worker_to_handle->last_stderr_file_fd, 0L, SEEK_SET) != -1);
+            fatal_assert(ftruncate(worker_to_handle->last_stderr_file_fd, 0) != -1);
             buffer wbuf = create_buffer();
-            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stderr) != -1, "cannot write string!\n");
-            fatal_assert(write_buffer(worker_to_handle->last_stderr_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+            fatal_assert(write_string(&wbuf, &worker_to_handle->last_stderr) != -1);
+            fatal_assert(write_buffer(worker_to_handle->last_stderr_file_fd, &wbuf) != -1);
             free(wbuf.data);
         }
         
@@ -315,11 +332,11 @@ void *worker_main(void *worker_arg) {
         array_push(worker_to_handle->runs, cur_run);
     
         // Writes to the `runs` file.
-        fatal_assert(lseek(worker_to_handle->runs_file_fd, 0L, SEEK_SET) != -1, "cannot lseek!\n");
-        fatal_assert(ftruncate(worker_to_handle->runs_file_fd, 0) != -1, "cannot truncate!\n");
+        fatal_assert(lseek(worker_to_handle->runs_file_fd, 0L, SEEK_SET) != -1);
+        fatal_assert(ftruncate(worker_to_handle->runs_file_fd, 0) != -1);
         buffer wbuf = create_buffer();
-        fatal_assert(write_run_array(&wbuf, worker_to_handle->runs) != -1, "cannot write string!\n");
-        fatal_assert(write_buffer(worker_to_handle->runs_file_fd, &wbuf) != -1, "cannot write buffer!\n");
+        fatal_assert(write_run_array(&wbuf, worker_to_handle->runs) != -1);
+        fatal_assert(write_buffer(worker_to_handle->runs_file_fd, &wbuf) != -1);
         free(wbuf.data);
         
         // Now that the task has been handled, we can sleep until the next minute.

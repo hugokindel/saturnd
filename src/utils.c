@@ -114,14 +114,12 @@ int mkdir_recursively(const char *path, uint16_t mode) {
     int err = 0;
     const char *pathIterator = path;
     char *directoryName = calloc(1, strlen(path) + 1);
-    
-    if (directoryName == NULL) {
-        return -1;
-    }
+    assert(directoryName);
     
     while ((pathIterator = strchr(pathIterator, '/')) != NULL) {
         long directoryNameLength = pathIterator - path;
-        memcpy(directoryName, path, directoryNameLength);
+        void *tmp = memcpy(directoryName, path, directoryNameLength);
+        assert(tmp);
         directoryName[directoryNameLength] = '\0';
         pathIterator++;
         
@@ -572,26 +570,32 @@ int read_run_array(int fd, run **runs) {
     return (int)nbruns;
 }
 
-int free_string(string *string) {
+void free_string(string *string) {
+    if (string == NULL) {
+        return;
+    }
+    
     free(string->data);
     string->data = NULL;
-    
-    return 0;
 }
 
-int free_commandline(commandline *commandline) {
+void free_commandline(commandline *commandline) {
+    if (commandline == NULL) {
+        return;
+    }
+    
     for (uint32_t i = 0; i < commandline->argc; i++) {
         free_string(&commandline->argv[i]);
     }
     
     free(commandline->argv);
     commandline->argv = NULL;
-    
-    return 0;
 }
 
-int free_task(task *task) {
-    free_commandline(&task->commandline);
+void free_task(task *task) {
+    if (task == NULL) {
+        return;
+    }
     
-    return 0;
+    free_commandline(&task->commandline);
 }

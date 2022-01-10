@@ -18,8 +18,11 @@
 // Asserts a condition that returns `-1` in case of error.
 #define assert(condition) if (!(condition)) { return -1; } (void)0
 
-// Asserts a condition that terminate the program in case of error.
-#define fatal_assert(condition, message) if (!(condition)) { fatal_error(message); } (void)0
+// Asserts a condition that terminates the program in case of error.
+#define fatal_assert(condition) if (!(condition)) { goto error; } (void)0
+
+// Asserts a condition that prints a message and terminates the program in case of error.
+#define fatal_assert_with_log(condition, message) if (!(condition)) { fatal_error(message); } (void)0
 
 // Creates a data (for sending data to a pipe).
 buffer create_buffer();
@@ -179,14 +182,14 @@ int read_run_array(int fd, run **runs);
 
 // Frees a `string`.
 // Returns `-1` in case of failure, else 0.
-int free_string(string *string);
+void free_string(string *string);
 
 // Frees a `commandline`.
 // Returns `-1` in case of failure, else 0.
-int free_commandline(commandline *commandline);
+void free_commandline(commandline *commandline);
 
 // Frees a `task`.
 // Returns `-1` in case of failure, else 0.
-int free_task(task *task);
+void free_task(task *task);
 
 #endif // UTILS_H.

@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
             return exit_code;
         case 'p':
             g_pipes_path = strdup(optarg);
-            fatal_assert(g_pipes_path != NULL, "invalid `g_pipes_path`!\n");
+            fatal_assert(g_pipes_path != NULL);
             break;
         case 'l':
             opt_opcode = CLIENT_REQUEST_LIST_TASKS;
@@ -77,22 +77,22 @@ int main(int argc, char *argv[]) {
         case 'r':
             opt_opcode = CLIENT_REQUEST_REMOVE_TASK;
             opt_taskid = strtoull(optarg, &strtoull_endp, 10);
-            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0', "invalid taskid!\n");
+            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'x':
             opt_opcode = CLIENT_REQUEST_GET_TIMES_AND_EXITCODES;
             opt_taskid = strtoull(optarg, &strtoull_endp, 10);
-            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0', "invalid taskid!\n");
+            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'o':
             opt_opcode = CLIENT_REQUEST_GET_STDOUT;
             opt_taskid = strtoull(optarg, &strtoull_endp, 10);
-            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0', "invalid taskid!\n");
+            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case 'e':
             opt_opcode = CLIENT_REQUEST_GET_STDERR;
             opt_taskid = strtoull(optarg, &strtoull_endp, 10);
-            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0', "invalid taskid!\n");
+            fatal_assert(strtoull_endp != optarg && strtoull_endp[0] == '\0');
             break;
         case '?':
             used_unexisting_option = 1;
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
         opt_opcode = CLIENT_REQUEST_LIST_TASKS;
     }
     
-    fatal_assert(allocate_paths() != -1, "cannot define pipes!\n");
+    fatal_assert(allocate_paths() != -1);
     
     int request_write_fd;
     int connection_attempts = 0;
@@ -119,10 +119,7 @@ int main(int argc, char *argv[]) {
         request_write_fd = open(g_request_pipe_path, O_WRONLY | O_NONBLOCK);
         
         if (request_write_fd == -1) {
-            if (connection_attempts == 10) {
-                fatal_error("cannot open request pipe within 100ms, timing out.\n");
-            }
-            
+            fatal_assert_with_log(connection_attempts < 10, "cannot open request pipe within 100ms, timing out.\n");
             log("cannot open request pipe, waiting 10ms...\n");
             connection_attempts++;
             usleep(10000);
@@ -135,14 +132,14 @@ int main(int argc, char *argv[]) {
     
     // Writes a request.
     buffer buf = create_buffer();
-    fatal_assert(write_uint16(&buf, &opt_opcode) != -1, "cannot write `opcode` to request!\n");
+    fatal_assert(write_uint16(&buf, &opt_opcode) != -1);
     
     switch (opt_opcode) {
     case CLIENT_REQUEST_CREATE_TASK: {
         task task;
-        fatal_assert(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1, "cannot parse `timing`!\n");
-        fatal_assert(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1, "cannot parse `commandline`!\n");
-        fatal_assert(write_task(&buf, &task, 0) != -1, "cannot write `task` to request!\n");
+        fatal_assert(timing_from_strings(&task.timing, opt_minutes, opt_hours, opt_daysofweek) != -1);
+        fatal_assert(commandline_from_args(&task.commandline, argc - optind, argv + optind) != -1);
+        fatal_assert(write_task(&buf, &task, 0) != -1);
         free_task(&task);
         break;
     }
@@ -150,24 +147,24 @@ int main(int argc, char *argv[]) {
     case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES:
     case CLIENT_REQUEST_GET_STDOUT:
     case CLIENT_REQUEST_GET_STDERR: {
-        fatal_assert(write_uint64(&buf, &opt_taskid) != -1, "cannot write `taskid` to request!\n");
+        fatal_assert(write_uint64(&buf, &opt_taskid) != -1);
         break;
     }
     default:
         break;
     }
     
-    fatal_assert(write_buffer(request_write_fd, &buf) != -1, "cannot write request!\n");
+    fatal_assert(write_buffer(request_write_fd, &buf) != -1);
     free(buf.data);
-    fatal_assert(close(request_write_fd) != -1, "cannot close request pipe!\n");
+    fatal_assert(close(request_write_fd) != -1);
     
     // Waits for a reply...
     int reply_read_fd = open(g_reply_pipe_path, O_RDONLY);
-    fatal_assert(reply_read_fd != -1, "cannot open response pipe!\n");
+    fatal_assert(reply_read_fd != -1);
     
     // Reads a reply.
     uint16_t reptype;
-    fatal_assert(read_uint16(reply_read_fd, &reptype) != -1, "cannot read `opcode` from response!\n");
+    fatal_assert(read_uint16(reply_read_fd, &reptype) != -1);
     
     if (reptype == SERVER_REPLY_OK) {
         log2("reply received `%s`.\n", reply_item_names()[reptype]);
@@ -176,10 +173,10 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_LIST_TASKS: {
             task *tasks = NULL;
             uint32_t nbtasks = read_task_array(reply_read_fd, &tasks);
-            fatal_assert(nbtasks != -1, "cannot read `nbtasks` from response!\n");
+            fatal_assert(nbtasks != -1);
             for (uint32_t i = 0; i < nbtasks; i++) {
                 char timing_str[TIMING_TEXT_MIN_BUFFERSIZE];
-                fatal_assert(timing_string_from_timing(timing_str, &tasks[i].timing) != -1, "cannot read `timing` from response!\n");
+                fatal_assert(timing_string_from_timing(timing_str, &tasks[i].timing) != -1);
 #ifdef __APPLE__
                 printf("%llu: %s", tasks[i].taskid, timing_str);
 #else
@@ -187,7 +184,7 @@ int main(int argc, char *argv[]) {
 #endif
                 for (uint32_t j = 0; j < tasks[i].commandline.argc; j++) {
                     char *argv_str = NULL;
-                    fatal_assert(cstring_from_string(&argv_str, &tasks[i].commandline.argv[j]) != -1, "cannot read `argv` from response!\n");
+                    fatal_assert(cstring_from_string(&argv_str, &tasks[i].commandline.argv[j]) != -1);
                     if (argv_str != NULL) {
                         printf(" %s", argv_str);
                     }
@@ -201,7 +198,7 @@ int main(int argc, char *argv[]) {
         }
         case CLIENT_REQUEST_CREATE_TASK: {
             uint64_t taskid;
-            fatal_assert(read_uint64(reply_read_fd, &taskid) != -1, "cannot read `taskid` from response!\n");
+            fatal_assert(read_uint64(reply_read_fd, &taskid) != -1);
 #ifdef __APPLE__
             printf("%llu\n", taskid);
 #else
@@ -212,12 +209,12 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_GET_TIMES_AND_EXITCODES: {
             run *runs = NULL;
             uint32_t nbruns = read_run_array(reply_read_fd, &runs);
-            fatal_assert(nbruns != -1, "cannot read `nbruns` from response!\n");
+            fatal_assert(nbruns != -1);
             for (uint32_t i = 0; i < nbruns; i++) {
                 time_t timestamp = (time_t)runs[i].time;
                 struct tm *time_info = localtime(&timestamp);
                 char time_str[26];
-                fatal_assert(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1, "cannot format `timing` from response!\n");
+                fatal_assert(strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", time_info) != -1);
                 printf("%s %d\n", time_str, runs[i].exitcode);
             }
             array_free(runs);
@@ -226,9 +223,9 @@ int main(int argc, char *argv[]) {
         case CLIENT_REQUEST_GET_STDOUT:
         case CLIENT_REQUEST_GET_STDERR: {
             string output;
-            fatal_assert(read_string(reply_read_fd, &output) != -1, "cannot read `output` from response!\n");
+            fatal_assert(read_string(reply_read_fd, &output) != -1);
             char *output_str = NULL;
-            fatal_assert(cstring_from_string(&output_str, &output) != -1, "cannot parse `output` from response!\n");
+            fatal_assert(cstring_from_string(&output_str, &output) != -1);
             if (output_str != NULL) {
                 printf("%s", output_str);
             }
@@ -241,12 +238,12 @@ int main(int argc, char *argv[]) {
         }
     } else {
         uint16_t errcode;
-        fatal_assert(read_uint16(reply_read_fd, &errcode) != -1, "cannot read `errcode` from response!\n");
+        fatal_assert(read_uint16(reply_read_fd, &errcode) != -1);
         log2("reply received `%s` with error `%s`.\n", reply_item_names()[reptype], reply_error_item_names()[errcode]);
         goto error;
     }
     
-    fatal_assert(close(reply_read_fd) != -1, "cannot close reply pipe!\n");
+    fatal_assert(close(reply_read_fd) != -1);
     
     goto cleanup;
     
