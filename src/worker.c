@@ -157,19 +157,11 @@ void cleanup_worker(void *cleanup_handle_ptr) {
 void sleep_worker(pthread_mutex_t *lock, pthread_cond_t *cond) {
     struct timespec now_time;
     clock_gettime(CLOCK_REALTIME, &now_time);
-    struct tm *cur_tm = localtime(&now_time.tv_sec);
-    int start_min = cur_tm->tm_min;
+    struct timespec duration = {now_time.tv_sec + 60, 0}; // NOLINT
     
-    do {
-        struct timespec duration = {now_time.tv_sec + 60 - cur_tm->tm_sec + 1, 0}; // NOLINT
-        
-        pthread_mutex_lock(lock);
-        pthread_cond_timedwait(cond, lock, &duration);
-        pthread_mutex_unlock(lock);
-        
-        clock_gettime(CLOCK_REALTIME, &now_time);
-        cur_tm = localtime(&now_time.tv_sec);
-    } while (cur_tm->tm_min == start_min);
+    pthread_mutex_lock(lock);
+    pthread_cond_timedwait(cond, lock, &duration);
+    pthread_mutex_unlock(lock);
 }
 
 void *worker_main(void *worker_arg) {
@@ -186,15 +178,15 @@ void *worker_main(void *worker_arg) {
     // exact minute. If it did, sleep until the next minute.
     if (array_size(worker_to_handle->runs) > 0) {
         time_t timestamp_last_run = (time_t)array_last(worker_to_handle->runs).time;
-        struct tm *time_info_last_run = localtime(&timestamp_last_run);
+        struct tm time_info_last_run = *localtime(&timestamp_last_run);
         time_t timestamp_now = (time_t)time(NULL);
-        struct tm *time_info_now = localtime(&timestamp_now);
+        struct tm time_info_now = *localtime(&timestamp_now);
         
-        if (time_info_last_run->tm_year == time_info_now->tm_year &&
-            time_info_last_run->tm_mon == time_info_now->tm_mon &&
-            time_info_last_run->tm_mday == time_info_now->tm_mday &&
-            time_info_last_run->tm_hour == time_info_now->tm_hour &&
-            time_info_last_run->tm_min == time_info_now->tm_min) {
+        if (time_info_last_run.tm_year == time_info_now.tm_year &&
+            time_info_last_run.tm_mon == time_info_now.tm_mon &&
+            time_info_last_run.tm_mday == time_info_now.tm_mday &&
+            time_info_last_run.tm_hour == time_info_now.tm_hour &&
+            time_info_last_run.tm_min == time_info_now.tm_min) {
             sleep_worker(&lock, &cond);
         }
     }
@@ -203,10 +195,10 @@ void *worker_main(void *worker_arg) {
         // Checks if the task has to run this minute, if not, sleep until the next minute.
         uint64_t execution_time = time(NULL);
         time_t timestamp = (time_t)execution_time;
-        struct tm *time_info = localtime(&timestamp);
-        if (((timing.daysofweek >> time_info->tm_wday) % 2 == 0) ||
-            ((timing.hours >> time_info->tm_hour) % 2 == 0) ||
-            ((timing.minutes >> time_info->tm_min) % 2 == 0)) {
+        struct tm time_info = *localtime(&timestamp);
+        if (((timing.daysofweek >> time_info.tm_wday) % 2 == 0) ||
+            ((timing.hours >> time_info.tm_hour) % 2 == 0) ||
+            ((timing.minutes >> time_info.tm_min) % 2 == 0)) {
             sleep_worker(&lock, &cond);
         }
         
